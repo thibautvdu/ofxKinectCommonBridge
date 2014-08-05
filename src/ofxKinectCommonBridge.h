@@ -37,7 +37,7 @@ public:
 	ofVec3f rotation, translation;
 	ofRectangle rect;
 	ofMesh mesh;
-	
+
 	ofVec3f getLocationByIdentifier(FACE_POSITIONS position);
 	ofRectangle getFeatureBounding(FACE_POSITIONS position);
 
@@ -146,7 +146,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	}
 
 	void setDepthClipping(float nearClip=500, float farClip=4000);
-	
+
 	/// updates the pixel buffers and textures
 	///
 	/// make sure to call this to update to the latest incoming frames
@@ -155,6 +155,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofPixels & getDepthPixelsRef();       	///< grayscale values
 	ofShortPixels & getRawDepthPixelsRef();	///< raw 11 bit values
 	NUI_DEPTH_IMAGE_PIXEL* getNuiDepthPixelsRef();
+	NUI_DEPTH_IMAGE_PIXEL* getNuiMappedDepthPixelsRef();
 
 	/// enable/disable frame loading into textures on update()
 	void setUseTexture(bool bUse);
@@ -248,6 +249,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofShortPixels depthPixelsRaw;
 	ofShortPixels depthPixelsRawBack;	///< depth back
 	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNui;
+	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNuiMapped;
 
 	ofPixels irPixels;
 	ofPixels irPixelsBack;
@@ -294,7 +296,7 @@ class ofxKinectCommonBridge : protected ofThread {
 
 #ifdef KCB_ENABLE_SPEECH
 	bool bInitedSpeech;
-#endif 
+#endif
 
 	bool bVideoIsInfrared;
 	bool bUsingSkeletons;

@@ -43,7 +43,7 @@ SkeletonBone::SkeletonBone ( const Vector4& inPosition, const _NUI_SKELETON_BONE
 		orient.hierarchicalRotation.rotationMatrix.M21, orient.hierarchicalRotation.rotationMatrix.M22, orient.hierarchicalRotation.rotationMatrix.M23, orient.hierarchicalRotation.rotationMatrix.M24,
 		orient.hierarchicalRotation.rotationMatrix.M31, orient.hierarchicalRotation.rotationMatrix.M32, orient.hierarchicalRotation.rotationMatrix.M33, orient.hierarchicalRotation.rotationMatrix.M34,
 		orient.hierarchicalRotation.rotationMatrix.M41, orient.hierarchicalRotation.rotationMatrix.M42, orient.hierarchicalRotation.rotationMatrix.M43, orient.hierarchicalRotation.rotationMatrix.M44);
-	
+
 	switch(trackingState) {
 	case NUI_SKELETON_POSITION_NOT_TRACKED:
 		this->trackingState = NotTracked;
@@ -124,7 +124,7 @@ ofxKinectCommonBridge::ofxKinectCommonBridge(){
   	bUseTexture = true;
 	bProgrammableRenderer = false;
 	bNearWhite = false;
-	
+
 	setDepthClipping();
 }
 
@@ -193,7 +193,7 @@ void ofxKinectCommonBridge::update()
 			NUI_DEPTH_IMAGE_POINT  *pts = new NUI_DEPTH_IMAGE_POINT[colorFormat.dwHeight*colorFormat.dwWidth];
 			NUI_DEPTH_IMAGE_PIXEL  *depth = new NUI_DEPTH_IMAGE_PIXEL[depthFormat.dwHeight*depthFormat.dwWidth];
 
-			int i = 0; 
+			int i = 0;
 			while ( i < (depthFormat.dwWidth*depthFormat.dwHeight)) {
 				depth[i].depth = (USHORT) depthPixelsRaw.getPixels()[i];
 				depth[i].playerIndex = 0;
@@ -218,15 +218,15 @@ void ofxKinectCommonBridge::update()
 		bNeedsUpdateVideo = false;
 
 		if(bUseTexture) {
-			if(bVideoIsInfrared) 
+			if(bVideoIsInfrared)
 			{
 				if(bProgrammableRenderer){
 					videoTex.loadData(videoPixels.getPixels(), colorFormat.dwWidth, colorFormat.dwHeight, GL_RED);
 				} else {
 					videoTex.loadData(videoPixels.getPixels(), colorFormat.dwWidth, colorFormat.dwHeight, GL_LUMINANCE16);
 				}
-			} 
-			else 
+			}
+			else
 			{
 				if( bProgrammableRenderer ) {
 					// programmable renderer likes this
@@ -253,38 +253,49 @@ void ofxKinectCommonBridge::update()
 		bIsFrameNewDepth = true;
 		swap(depthPixelsRaw, depthPixelsRawBack);
 		bNeedsUpdateDepth = false;
-		
+
 		// if mapping depth to color, upscale depth
-		if(mappingDepthToColor) 
+		if(mappingDepthToColor)
 		{
 			NUI_COLOR_IMAGE_POINT *pts = new NUI_COLOR_IMAGE_POINT[colorFormat.dwWidth*colorFormat.dwHeight];
-			
-			int i = 0; 
+
+			int i = 0;
 			while ( i < (depthFormat.dwWidth*depthFormat.dwHeight)) {
 				depthPixelsNui[i].depth = NuiDepthPixelToDepth(depthPixelsRaw[i]);
 				depthPixelsNui[i].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsRaw[i]);
 				i++;
 			}
-			
+
 			HRESULT mapResult;
 			mapResult = mapper->MapDepthFrameToColorFrame(depthRes, (depthFormat.dwWidth*depthFormat.dwHeight), depthPixelsNui, NUI_IMAGE_TYPE_COLOR, colorRes, (depthFormat.dwWidth*depthFormat.dwHeight), pts);
 
 			if(SUCCEEDED(mapResult))
 			{
+				// @Thibaut For now, assume the depth and color image are the same size for the mapping
+				for (int i = 0; i < (colorFormat.dwWidth*colorFormat.dwHeight); ++i) {
+					depthPixelsNuiMapped[i].depth = 0;
+					depthPixelsNuiMapped[i].playerIndex = 0;
+					depthPixels[i] = 0;
+				}
 
 				for( int i = 0; i < (depthFormat.dwWidth*depthFormat.dwHeight); i++ ) {
 					if(pts[i].x > 0 && pts[i].x < depthFormat.dwWidth && pts[i].y > 0 && pts[i].y < depthFormat.dwHeight) {
-						depthPixels[i] = depthLookupTable[ ofClamp(depthPixelsRaw[pts[i].y * depthFormat.dwWidth + pts[i].x] >> 4, 0, depthLookupTable.size()-1 ) ];
-					} else {
+						//depthPixels[i] = depthLookupTable[ ofClamp(depthPixelsRaw[pts[i].y * depthFormat.dwWidth + pts[i].x] >> 4, 0, depthLookupTable.size()-1 ) ];
+						int colorImageIndex = pts[i].y * depthFormat.dwWidth + pts[i].x;
+						depthPixels[colorImageIndex] = depthLookupTable[ofClamp(depthPixelsRaw[i] >> 4, 0, depthLookupTable.size() - 1)];
+						depthPixelsNuiMapped[colorImageIndex].depth = NuiDepthPixelToDepth(depthPixelsRaw[i]);
+						depthPixelsNuiMapped[colorImageIndex].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsRaw[i]);
+					} /*else {
 						depthPixels[i] = 0;
-					}
+					}*/
 				}
+
 			} else {
 				ofLog() << " mapping error " << mapResult << endl;
 			}
 
 			delete[] pts;
-		
+
 			for(int i = 0; i < depthPixels.getWidth()*depthPixels.getHeight(); i++) {
 				depthPixelsRaw[i] = depthPixelsRaw[i] >> 4;
 			}
@@ -316,13 +327,13 @@ void ofxKinectCommonBridge::update()
 
 	// update skeletons if necessary
 	if(bUsingSkeletons && bNeedsUpdateSkeleton)
-	{	
+	{
 
 		bIsSkeletonFrameNew = true;
 		bNeedsUpdateSkeleton = false;
 		bool foundSkeleton = false;
 
-		for ( int i = 0; i < NUI_SKELETON_COUNT; i++ ) 
+		for ( int i = 0; i < NUI_SKELETON_COUNT; i++ )
 		{
 			skeletons.at( i ).clear();
 
@@ -333,7 +344,7 @@ void ofxKinectCommonBridge::update()
 					//error( hr );
 				}
 
-				for ( int j = 0; j < NUI_SKELETON_POSITION_COUNT; j++ ) 
+				for ( int j = 0; j < NUI_SKELETON_POSITION_COUNT; j++ )
 				{
 					SkeletonBone bone( k4wSkeletons.SkeletonData[i].SkeletonPositions[j], bones[j], k4wSkeletons.SkeletonData[i].eSkeletonPositionTrackingState[j] );
 					skeletons.at(i).insert( std::pair<NUI_SKELETON_POSITION_INDEX, SkeletonBone>( NUI_SKELETON_POSITION_INDEX(j), bone ) );
@@ -383,7 +394,7 @@ void ofxKinectCommonBridge::updateFaceTrackingData( IFTResult* ftResult )
 
 	RECT pRect;
 	ftResult->GetFaceRect( &pRect );
-	
+
 	faceDataBack.rect.set( ofVec2f(pRect.left, pRect.top), ofVec2f(pRect.right, pRect.bottom ));
 
 	FLOAT *AUCoefficients;
@@ -415,7 +426,7 @@ void ofxKinectCommonBridge::updateFaceTrackingData( IFTResult* ftResult )
 	UINT vertexCount = ftModel->GetVertexCount();
     FT_VECTOR2D* pPts2D = reinterpret_cast<FT_VECTOR2D*>(_malloca(sizeof(FT_VECTOR2D) * vertexCount));
 
-	ftModel->GetProjectedShape(&ftCameraConfig, zoomFactor, viewOffset, pSU, ftModel->GetSUCount(), AUCoefficients, 
+	ftModel->GetProjectedShape(&ftCameraConfig, zoomFactor, viewOffset, pSU, ftModel->GetSUCount(), AUCoefficients,
 		AUCount, scale, rotationXYZ, translationXYZ, pPts2D, vertexCount);
 
 	FT_TRIANGLE* pTriangles;
@@ -423,13 +434,13 @@ void ofxKinectCommonBridge::updateFaceTrackingData( IFTResult* ftResult )
     ftModel->GetTriangles(&pTriangles, &triangleCount);
 
 	faceDataBack.mesh.clear();
-	for( UINT i = 0; i<vertexCount; i++) 
+	for( UINT i = 0; i<vertexCount; i++)
 	{
 		ofVec3f v( pPts2D[i].x, pPts2D[i].y, 0);
 		faceDataBack.mesh.getVertices().push_back(v);
 	}
 
-	for( UINT i = 0; i<triangleCount; i++) 
+	for( UINT i = 0; i<triangleCount; i++)
 	{
 		//if( pTriangles[i].i < pointCount && pTriangles[i].j < pointCount && pTriangles[i].k < pointCount )
 		//{
@@ -468,6 +479,11 @@ ofShortPixels & ofxKinectCommonBridge::getRawDepthPixelsRef(){
 //------------------------------------
 NUI_DEPTH_IMAGE_PIXEL* ofxKinectCommonBridge::getNuiDepthPixelsRef(){
 	return depthPixelsNui;
+}
+
+//------------------------------------
+NUI_DEPTH_IMAGE_PIXEL* ofxKinectCommonBridge::getNuiMappedDepthPixelsRef(){
+	return depthPixelsNuiMapped;
 }
 
 //------------------------------------
@@ -552,7 +568,7 @@ void ofxKinectCommonBridge::drawSkeleton( int index )
 	}
 
 	// Iterate through joints
-	for ( Skeleton::iterator it = skeletons.at(index).begin(); it != skeletons.at(index).end(); ++it ) 
+	for ( Skeleton::iterator it = skeletons.at(index).begin(); it != skeletons.at(index).end(); ++it )
 	{
 
 		// Get position and rotation
@@ -562,7 +578,7 @@ void ofxKinectCommonBridge::drawSkeleton( int index )
 		ofSetLineWidth(3.0); // fat lines
 		int startJoint = bone.getStartJoint();
 		// do we have a start joint?
-		if ( skeletons.at(index).find( ( NUI_SKELETON_POSITION_INDEX ) startJoint ) != skeletons.at(index).end() ) 
+		if ( skeletons.at(index).find( ( NUI_SKELETON_POSITION_INDEX ) startJoint ) != skeletons.at(index).end() )
 		{
 			// draw the line
 			ofLine( bone.getScreenPosition(), skeletons.at(index).find( ( NUI_SKELETON_POSITION_INDEX ) startJoint )->second.getScreenPosition() );
@@ -636,7 +652,7 @@ bool ofxKinectCommonBridge::initDepthStream( int width, int height, bool nearMod
 	{
 		depthFormat = df;
 		createDepthPixels();
-	} 
+	}
 	else
 	{
 		ofLogError("ofxKinectCommonBridge::open") << "Error opening depth stream";
@@ -659,6 +675,7 @@ bool ofxKinectCommonBridge::createDepthPixels( int width, int height )
     if( hKinect != 0 )
 	{
 		depthPixelsNui = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
+		depthPixelsNuiMapped = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
 
 		if(bProgrammableRenderer) {
 			depthPixels.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_COLOR);
@@ -685,15 +702,15 @@ bool ofxKinectCommonBridge::createDepthPixels( int width, int height )
 
 				cout << rawDepthTex.getWidth() << " " << rawDepthTex.getHeight() << endl;
 				//depthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_RGB);
-			} 
-			else 
+			}
+			else
 			{
 				depthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
 				rawDepthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE16);
 			}
 		}
 
-	} 
+	}
 	else
 	{
 		ofLogError("ofxKinectCommonBridge::createDepthPixels") << " No Kinect ";
@@ -706,7 +723,7 @@ bool ofxKinectCommonBridge::createDepthPixels( int width, int height )
 bool ofxKinectCommonBridge::initColorStream( int width, int height, bool mapColorToDepth )
 {
 	mappingColorToDepth = mapColorToDepth;
-	if(mappingColorToDepth && mapper == NULL) 
+	if(mappingColorToDepth && mapper == NULL)
 	{
 		/*
 		// get the port ID from the simple api
@@ -733,7 +750,7 @@ bool ofxKinectCommonBridge::initColorStream( int width, int height, bool mapColo
 	} else {
 		ofLog() << " invalid image size passed to startColorStream() " << endl;
 	}
-    
+
     KinectEnableColorStream(hKinect, colorRes, &cf);
 	if( KinectStreamStatusError != KinectGetColorStreamStatus(hKinect) )
 	{
@@ -790,7 +807,7 @@ bool ofxKinectCommonBridge::initIRStream( int width, int height )
 	}
 
 	KINECT_IMAGE_FRAME_FORMAT cf = { sizeof(KINECT_IMAGE_FRAME_FORMAT), 0 };
-    
+
     KinectEnableIRStream(hKinect, res, &cf);
     if( KinectStreamStatusError != KinectGetIRStreamStatus(hKinect) )
 	{
@@ -834,7 +851,7 @@ bool ofxKinectCommonBridge::initSkeletonStream( bool seated )
 	}
 
 	NUI_TRANSFORM_SMOOTH_PARAMETERS p = { 0.5f, 0.1f, 0.5f, 0.1f, 0.1f };
-    
+
     KinectEnableSkeletonStream( hKinect, seated, SkeletonSelectionModeDefault, &p);
     if( KinectStreamStatusError != KinectGetSkeletonStreamStatus(hKinect) ) {
 		//cout << " we have skeletons " << endl;
@@ -848,7 +865,7 @@ bool ofxKinectCommonBridge::initSkeletonStream( bool seated )
 
 		bUsingSkeletons = true;
 		return true;
-	} 
+	}
 
 	ofLogError("ofxKinectCommonBridge::initSkeletonStream") << "cannot initialize stream";
 	return false;
@@ -862,12 +879,12 @@ bool ofxKinectCommonBridge::initSpeech()
 	ULONGLONG interest;
 	bool adaptive = false;
 
-	HRESULT hr; 
+	HRESULT hr;
 
 	// testing
 	//string path = "C:\\en-US.grxml";
 	//WCHAR file[255];
-	
+
 	int sz = MultiByteToWideChar(CP_UTF8, 0, grammarFile.c_str(), -1, NULL, 0);
 	WCHAR *file = new WCHAR[sz];
 	MultiByteToWideChar(CP_UTF8, 0, grammarFile.c_str(), -1, file, sz);
@@ -891,7 +908,7 @@ bool ofxKinectCommonBridge::initSpeech()
 bool ofxKinectCommonBridge::initFaceTracking() {
 
 	// initialize camera params if we don't already have a Kinect
-	if( hKinect == 0) 
+	if( hKinect == 0)
 	{
 		hKinect = KinectOpenDefaultSensor();
 		createDepthPixels(320, 240);
@@ -907,12 +924,12 @@ bool ofxKinectCommonBridge::initFaceTracking() {
 
 	// enable face tracking
     HRESULT hr = KinectEnableFaceTracking(hKinect, true);
-    
+
 	if(FAILED(hr))
 	{
 		ofLogError() << "KinectEnableFaceTracking: unable to enable face tracking" << endl;
-	} 
-	else 
+	}
+	else
 	{
 		bUsingFaceTrack = true;
 	}
@@ -952,7 +969,7 @@ bool ofxKinectCommonBridge::start()
 	}
 
 	startThread(true, false);
-	bStarted = true;	
+	bStarted = true;
 
 	return true;
 }
@@ -994,21 +1011,25 @@ void ofxKinectCommonBridge::stop() {
 		if(depthPixelsNui){
 			delete[] depthPixelsNui;
 		}
-		
+
+		if (depthPixelsNuiMapped){
+			delete[] depthPixelsNuiMapped;
+		}
+
 		KinectStopStreams( hKinect );
 		KinectCloseSensor( hKinect );
 
 	}
-}	
+}
 
 //----------------------------------------------------------
 void ofxKinectCommonBridge::threadedFunction(){
 
 	LONGLONG timestamp;
-	
+
 	cout << "STARTING THREAD" << endl;
 
-	//JG: DO WE NEED TO BAIL ON THIS LOOP IF THE DEVICE QUITS? 
+	//JG: DO WE NEED TO BAIL ON THIS LOOP IF THE DEVICE QUITS?
 	//how can we tell?
 	while(isThreadRunning()) {
 
@@ -1022,7 +1043,7 @@ void ofxKinectCommonBridge::threadedFunction(){
 			if(  KinectIsColorFrameReady(hKinect) && SUCCEEDED( KinectGetColorFrame(hKinect, colorFormat.cbBufferSize, irPixelByteArray, &timestamp) ) )
 			{
 				bNeedsUpdateVideo = true;
-				
+
 				for (int i = 0; i < colorFormat.dwWidth * colorFormat.dwHeight; i++)
 				{
 					videoPixelsBack.getPixels()[i] = reinterpret_cast<USHORT*>(irPixelByteArray)[i] >> 8;
@@ -1038,7 +1059,7 @@ void ofxKinectCommonBridge::threadedFunction(){
 		}
 
 		if(bUsingSkeletons) {
-			if( KinectIsSkeletonFrameReady(hKinect) && SUCCEEDED ( KinectGetSkeletonFrame(hKinect, &k4wSkeletons )) ) 
+			if( KinectIsSkeletonFrameReady(hKinect) && SUCCEEDED ( KinectGetSkeletonFrame(hKinect, &k4wSkeletons )) )
 			{
 				bNeedsUpdateSkeleton = true;
 			}
@@ -1066,7 +1087,7 @@ void ofxKinectCommonBridge::threadedFunction(){
 								// this is an ISpRecoResult
 								ISpRecoResult* result = reinterpret_cast<ISpRecoResult*>(spevent.lParam);
 								SPPHRASE* pPhrase = NULL;
-                    
+
 								hr = result->GetPhrase(&pPhrase);
 								if (SUCCEEDED(hr))
 								{
