@@ -272,6 +272,9 @@ void ofxKinectCommonBridge::update()
 			if(SUCCEEDED(mapResult))
 			{
 				// @Thibaut For now, assume the depth and color image are the same size for the mapping
+				if (colorFormat.dwWidth != depthFormat.dwWidth || colorFormat.dwHeight != depthFormat.dwHeight) {
+					ofLog(OF_LOG_ERROR) << "Mapping depth frame to color frame is not support yet for different resolutions";
+				}
 				for (int i = 0; i < (colorFormat.dwWidth*colorFormat.dwHeight); ++i) {
 					depthPixelsNuiMapped[i].depth = 0;
 					depthPixelsNuiMapped[i].playerIndex = 0;
@@ -485,8 +488,10 @@ NUI_DEPTH_IMAGE_PIXEL* ofxKinectCommonBridge::getNuiDepthPixelsRef(){
 NUI_DEPTH_IMAGE_PIXEL* ofxKinectCommonBridge::getNuiMappedDepthPixelsRef(){
 	if (mappingDepthToColor)
 		return depthPixelsNuiMapped;
-	else
+	else {
+		ofLog(OF_LOG_ERROR) << "Trying to retrieve mapped depth pixels while the mapping wasn't set";
 		return depthPixelsNui;
+	}
 }
 
 //------------------------------------
@@ -497,13 +502,13 @@ ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) {
 	float horizontalFocalLength = colorFormat.dwWidth / (2 * tan(HORIZONTAL_VIEWING_ANGLE / 2));
 	float verticalFocalLength = colorFormat.dwHeight / (2 * tan(VERTICAL_VIEWING_ANGLE / 2));
 
-	xColor -= colorFormat.dwWidth / 2;
-	yColor -= colorFormat.dwHeight / 2;
+	int xColorCentered = xColor - colorFormat.dwWidth / 2;
+	int yColorCentered = yColor - colorFormat.dwHeight / 2;
 
 	if (mappingDepthToColor) {
 		worldCoordinates.z = (depthPixelsNuiMapped + xColor + yColor*depthFormat.dwWidth)->depth;
-		worldCoordinates.x = worldCoordinates.z * xColor / horizontalFocalLength;
-		worldCoordinates.y = worldCoordinates.z * yColor / verticalFocalLength;
+		worldCoordinates.x = worldCoordinates.z * xColorCentered / horizontalFocalLength;
+		worldCoordinates.y = worldCoordinates.z * yColorCentered / verticalFocalLength;
 	}
 	else {
 		ofLog(OF_LOG_ERROR) << "Retrieving world coordinates without mapping depth to color isn't supported yet";
