@@ -103,6 +103,9 @@ typedef map<_NUI_SKELETON_POSITION_INDEX, SkeletonBone> Skeleton;
 
 class ofxKinectCommonBridge : protected ofThread {
   public:
+	static const int HORIZONTAL_VIEWING_ANGLE = 57;
+	static const int VERTICAL_VIEWING_ANGLE = 43;
+
 	ofxKinectCommonBridge();
 
 	// new API
@@ -156,6 +159,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofShortPixels & getRawDepthPixelsRef();	///< raw 11 bit values
 	NUI_DEPTH_IMAGE_PIXEL* getNuiDepthPixelsRef();
 	NUI_DEPTH_IMAGE_PIXEL* getNuiMappedDepthPixelsRef();
+	ofVec3f getWorldCoordinates(int xColor, int yColor);
 
 	/// enable/disable frame loading into textures on update()
 	void setUseTexture(bool bUse);
@@ -315,6 +319,5 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	INuiSensor *nuiSensor;
 	INuiCoordinateMapper *mapper;
-
 
 };

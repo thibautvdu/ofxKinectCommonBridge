@@ -483,7 +483,33 @@ NUI_DEPTH_IMAGE_PIXEL* ofxKinectCommonBridge::getNuiDepthPixelsRef(){
 
 //------------------------------------
 NUI_DEPTH_IMAGE_PIXEL* ofxKinectCommonBridge::getNuiMappedDepthPixelsRef(){
-	return depthPixelsNuiMapped;
+	if (mappingDepthToColor)
+		return depthPixelsNuiMapped;
+	else
+		return depthPixelsNui;
+}
+
+//------------------------------------
+// Ignore abberations
+ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) {
+	ofVec3f worldCoordinates(0, 0, 0);
+
+	float horizontalFocalLength = colorFormat.dwWidth / (2 * tan(HORIZONTAL_VIEWING_ANGLE / 2));
+	float verticalFocalLength = colorFormat.dwHeight / (2 * tan(VERTICAL_VIEWING_ANGLE / 2));
+
+	xColor -= colorFormat.dwWidth / 2;
+	yColor -= colorFormat.dwHeight / 2;
+
+	if (mappingDepthToColor) {
+		worldCoordinates.z = (depthPixelsNuiMapped + xColor + yColor*depthFormat.dwWidth)->depth;
+		worldCoordinates.x = worldCoordinates.z * xColor / horizontalFocalLength;
+		worldCoordinates.y = worldCoordinates.z * yColor / verticalFocalLength;
+	}
+	else {
+		ofLog(OF_LOG_ERROR) << "Retrieving world coordinates without mapping depth to color isn't supported yet";
+	}
+
+	return worldCoordinates;
 }
 
 //------------------------------------
