@@ -158,7 +158,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	void update();
 	ofPixels& getColorPixelsRef();
 	ofPixels & getDepthPixelsRef();       	///< grayscale values
-	ofShortPixels & getRawDepthPixelsRef();	///< raw 11 bit values
+	ofPixels & getRawDepthPixelsRef();	///< raw 11 bit values
 	NUI_DEPTH_IMAGE_PIXEL* getNuiDepthPixelsRef();
 	NUI_DEPTH_IMAGE_PIXEL* getNuiMappedDepthPixelsRef();
 	ofVec3f getWorldCoordinates(int xColor, int yColor);
@@ -251,10 +251,9 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofPixels videoPixels;
 	ofPixels videoPixelsBack;			///< rgb back
 	ofPixels depthPixels;
-	ofPixels depthPixelsBack;
-	ofShortPixels depthPixelsRaw;
-	ofShortPixels depthPixelsRawBack;	///< depth back
+	ofPixels depthPixelsMapped;
 	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNui;
+	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNuiBack;
 	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNuiMapped;
 
 	ofPixels irPixels;

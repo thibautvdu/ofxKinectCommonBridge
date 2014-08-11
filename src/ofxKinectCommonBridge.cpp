@@ -198,7 +198,7 @@ void ofxKinectCommonBridge::update()
 
 			int i = 0;
 			while ( i < (depthFormat.dwWidth*depthFormat.dwHeight)) {
-				depth[i].depth = (USHORT) depthPixelsRaw.getPixels()[i];
+				depth[i].depth = (USHORT) depthPixels.getPixels()[i];
 				depth[i].playerIndex = 0;
 				i++;
 			}
@@ -254,20 +254,17 @@ void ofxKinectCommonBridge::update()
 		}
 
 		bIsFrameNewDepth = true;
-		swap(depthPixelsRaw, depthPixelsRawBack);
+		swap(depthPixelsNui, depthPixelsNuiBack);
 		bNeedsUpdateDepth = false;
+
+		for (int i = 0; i < depthFormat.dwWidth*depthFormat.dwHeight; i++) {
+			depthPixels[i] = depthPixelsNui[i].depth;
+		}
 
 		// if mapping depth to color, upscale depth
 		if(mappingDepthToColor)
 		{
 			NUI_COLOR_IMAGE_POINT *pts = new NUI_COLOR_IMAGE_POINT[colorFormat.dwWidth*colorFormat.dwHeight];
-
-			int i = 0;
-			while ( i < (depthFormat.dwWidth*depthFormat.dwHeight)) {
-				depthPixelsNui[i].depth = NuiDepthPixelToDepth(depthPixelsRaw[i]);
-				depthPixelsNui[i].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsRaw[i]);
-				i++;
-			}
 
 			HRESULT mapResult;
 			mapResult = mapper->MapDepthFrameToColorFrame(depthRes, (depthFormat.dwWidth*depthFormat.dwHeight), depthPixelsNui, NUI_IMAGE_TYPE_COLOR, colorRes, (depthFormat.dwWidth*depthFormat.dwHeight), pts);
@@ -281,19 +278,15 @@ void ofxKinectCommonBridge::update()
 				for (int i = 0; i < (colorFormat.dwWidth*colorFormat.dwHeight); ++i) {
 					depthPixelsNuiMapped[i].depth = 0;
 					depthPixelsNuiMapped[i].playerIndex = 0;
-					depthPixels[i] = 0;
+					depthPixelsMapped[i] = 0;
 				}
 
 				for( int i = 0; i < (depthFormat.dwWidth*depthFormat.dwHeight); i++ ) {
 					if(pts[i].x > 0 && pts[i].x < depthFormat.dwWidth && pts[i].y > 0 && pts[i].y < depthFormat.dwHeight) {
-						//depthPixels[i] = depthLookupTable[ ofClamp(depthPixelsRaw[pts[i].y * depthFormat.dwWidth + pts[i].x] >> 4, 0, depthLookupTable.size()-1 ) ];
 						int colorImageIndex = pts[i].y * depthFormat.dwWidth + pts[i].x;
-						depthPixels[colorImageIndex] = depthLookupTable[ofClamp(depthPixelsRaw[i] >> 4, 0, depthLookupTable.size() - 1)];
-						depthPixelsNuiMapped[colorImageIndex].depth = NuiDepthPixelToDepth(depthPixelsRaw[i]);
-						depthPixelsNuiMapped[colorImageIndex].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsRaw[i]);
-					} /*else {
-						depthPixels[i] = 0;
-					}*/
+						depthPixelsMapped[colorImageIndex] = depthLookupTable[ofClamp(depthPixelsNui[i].depth, 0, depthLookupTable.size() - 1)];
+						depthPixelsNuiMapped[colorImageIndex] = depthPixelsNui[i];
+					}
 				}
 
 			} else {
@@ -302,17 +295,10 @@ void ofxKinectCommonBridge::update()
 
 			delete[] pts;
 
-			for(int i = 0; i < depthPixels.getWidth()*depthPixels.getHeight(); i++) {
-				depthPixelsRaw[i] = depthPixelsRaw[i] >> 4;
-			}
-
 		} else {
 
-			for(int i = 0; i < depthPixels.getWidth()*depthPixels.getHeight(); i++) {
-				depthPixels[i] = depthLookupTable[ ofClamp(depthPixelsRaw[i] >> 4, 0, depthLookupTable.size()-1 ) ];
-				depthPixelsNui[i].depth = NuiDepthPixelToDepth(depthPixelsRaw[i]);
-				depthPixelsNui[i].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsRaw[i]);
-				depthPixelsRaw[i] = depthPixelsRaw[i] >> 4;
+			for(int i = 0; i < depthPixelsMapped.getWidth()*depthPixelsMapped.getHeight(); i++) {
+				depthPixelsMapped[i] = depthLookupTable[ ofClamp(depthPixelsNui[i].depth, 0, depthLookupTable.size()-1 ) ];
 			}
 		}
 
@@ -320,11 +306,11 @@ void ofxKinectCommonBridge::update()
 		if(bUseTexture) {
 			//depthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
 			if( bProgrammableRenderer ) {
-				depthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_RED);
-				rawDepthTex.loadData(depthPixelsRaw.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_RED);
+				depthTex.loadData(depthPixelsMapped.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_RED);
+				rawDepthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_RED);
 			} else {
-				depthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
-				rawDepthTex.loadData(depthPixelsRaw.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE16);
+				depthTex.loadData(depthPixelsMapped.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
+				rawDepthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE16);
 			}
 		}
 	} else {
@@ -474,12 +460,12 @@ ofPixels& ofxKinectCommonBridge::getColorPixelsRef(){
 
 //------------------------------------
 ofPixels & ofxKinectCommonBridge::getDepthPixelsRef(){       	///< grayscale values
-	return depthPixels;
+	return depthPixelsMapped;
 }
 
 //------------------------------------
-ofShortPixels & ofxKinectCommonBridge::getRawDepthPixelsRef(){
-	return depthPixelsRaw;
+ofPixels & ofxKinectCommonBridge::getRawDepthPixelsRef(){
+	return depthPixels;
 }
 
 //------------------------------------
@@ -712,15 +698,10 @@ bool ofxKinectCommonBridge::createDepthPixels( int width, int height )
 		depthPixelsNuiMapped = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
 
 		if(bProgrammableRenderer) {
-			depthPixels.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_COLOR);
-			depthPixelsBack.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_COLOR);
+			depthPixelsMapped.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_COLOR);
 		} else {
-			depthPixels.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
-			depthPixelsBack.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
+			depthPixelsMapped.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
 		}
-
-		depthPixelsRaw.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
-		depthPixelsRawBack.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
 
 		if(bUseTexture)
 		{
@@ -730,8 +711,8 @@ bool ofxKinectCommonBridge::createDepthPixels( int width, int height )
 				depthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_R8);//, true, GL_R8, GL_UNSIGNED_BYTE);
 				depthTex.setRGToRGBASwizzles(true);
 
-				//rawDepthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_R16, true, GL_RED, GL_UNSIGNED_SHORT);
-				rawDepthTex.allocate(depthPixelsRaw, true);
+				rawDepthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_R16, true, GL_RED, GL_UNSIGNED_SHORT);
+				//rawDepthTex.allocate(depthPixels, true);
 				rawDepthTex.setRGToRGBASwizzles(true);
 
 				cout << rawDepthTex.getWidth() << " " << rawDepthTex.getHeight() << endl;
@@ -1067,10 +1048,10 @@ void ofxKinectCommonBridge::threadedFunction(){
 	//how can we tell?
 	while(isThreadRunning()) {
 
-        if( KinectIsDepthFrameReady(hKinect) && SUCCEEDED( KinectGetDepthFrame(hKinect, depthFormat.cbBufferSize, (BYTE*)depthPixelsRawBack.getPixels(), &timestamp) ) )
+		if (KinectIsDepthFrameReady(hKinect) && SUCCEEDED(KinectGetDepthImagePixels(hKinect, 0, depthPixelsNuiBack, &timestamp)))
 		{
 			bNeedsUpdateDepth = true;
-        }
+		}
 
 		if(bVideoIsInfrared)
 		{
