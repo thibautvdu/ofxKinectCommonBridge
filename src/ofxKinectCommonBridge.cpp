@@ -128,6 +128,9 @@ ofxKinectCommonBridge::ofxKinectCommonBridge(){
 	setDepthClipping();
 }
 
+const float ofxKinectCommonBridge::HORIZONTAL_VIEWING_ANGLE_RAD = 0.994837674f;
+const float ofxKinectCommonBridge::VERTICAL_VIEWING_ANGLE_RAD = 0.750491578f;
+
 //---------------------------------------------------------------------------
 void ofxKinectCommonBridge::setDepthClipping(float nearClip, float farClip){
 	nearClipping = nearClip;
@@ -499,16 +502,16 @@ NUI_DEPTH_IMAGE_PIXEL* ofxKinectCommonBridge::getNuiMappedDepthPixelsRef(){
 ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) {
 	ofVec3f worldCoordinates(0, 0, 0);
 
-	float horizontalFocalLength = colorFormat.dwWidth / (2 * tan(HORIZONTAL_VIEWING_ANGLE / 2));
-	float verticalFocalLength = colorFormat.dwHeight / (2 * tan(VERTICAL_VIEWING_ANGLE / 2));
+	float horizontalFocalLength = colorFormat.dwWidth / (2 * tan(HORIZONTAL_VIEWING_ANGLE_RAD / 2));
+	float verticalFocalLength = colorFormat.dwHeight / (2 * tan(VERTICAL_VIEWING_ANGLE_RAD / 2));
 
 	int xColorCentered = xColor - colorFormat.dwWidth / 2;
 	int yColorCentered = yColor - colorFormat.dwHeight / 2;
 
 	if (mappingDepthToColor) {
 		worldCoordinates.z = (depthPixelsNuiMapped + xColor + yColor*depthFormat.dwWidth)->depth;
-		worldCoordinates.x = worldCoordinates.z * xColorCentered / horizontalFocalLength;
-		worldCoordinates.y = worldCoordinates.z * yColorCentered / verticalFocalLength;
+		worldCoordinates.x = (worldCoordinates.z * xColorCentered) / horizontalFocalLength;
+		worldCoordinates.y = (worldCoordinates.z * yColorCentered) / verticalFocalLength;
 	}
 	else {
 		ofLog(OF_LOG_ERROR) << "Retrieving world coordinates without mapping depth to color isn't supported yet";
