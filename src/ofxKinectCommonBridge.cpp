@@ -254,7 +254,7 @@ void ofxKinectCommonBridge::update()
 		}
 
 		bIsFrameNewDepth = true;
-		swap(depthPixelsNui, depthPixelsNuiBack);
+		//swap(depthPixelsNui, depthPixelsNuiBack);
 		bNeedsUpdateDepth = false;
 
 		for (int i = 0; i < depthFormat.dwWidth*depthFormat.dwHeight; i++) {
@@ -695,13 +695,17 @@ bool ofxKinectCommonBridge::createDepthPixels( int width, int height )
     if( hKinect != 0 )
 	{
 		depthPixelsNui = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
-		depthPixelsNuiMapped = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
+		depthPixelsNuiBack = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
+		depthPixelsNuiMapped = new NUI_DEPTH_IMAGE_PIXEL[(colorFormat.dwWidth*colorFormat.dwHeight)];
 
 		if(bProgrammableRenderer) {
 			depthPixelsMapped.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_COLOR);
 		} else {
 			depthPixelsMapped.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
 		}
+
+		depthPixels.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
+
 
 		if(bUseTexture)
 		{
@@ -711,8 +715,8 @@ bool ofxKinectCommonBridge::createDepthPixels( int width, int height )
 				depthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_R8);//, true, GL_R8, GL_UNSIGNED_BYTE);
 				depthTex.setRGToRGBASwizzles(true);
 
-				rawDepthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_R16, true, GL_RED, GL_UNSIGNED_SHORT);
-				//rawDepthTex.allocate(depthPixels, true);
+				//rawDepthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_R16, true, GL_RED, GL_UNSIGNED_SHORT);
+				rawDepthTex.allocate(depthPixels, true);
 				rawDepthTex.setRGToRGBASwizzles(true);
 
 				cout << rawDepthTex.getWidth() << " " << rawDepthTex.getHeight() << endl;
@@ -1048,7 +1052,7 @@ void ofxKinectCommonBridge::threadedFunction(){
 	//how can we tell?
 	while(isThreadRunning()) {
 
-		if (KinectIsDepthFrameReady(hKinect) && SUCCEEDED(KinectGetDepthImagePixels(hKinect, 0, depthPixelsNuiBack, &timestamp)))
+		if (KinectIsDepthFrameReady(hKinect) && SUCCEEDED(KinectGetDepthImagePixels(hKinect, depthFormat.dwHeight*depthFormat.dwWidth, depthPixelsNuiBack, &timestamp)))
 		{
 			bNeedsUpdateDepth = true;
 		}
