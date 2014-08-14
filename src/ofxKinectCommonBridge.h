@@ -159,6 +159,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	void setDepthClipping(float nearClip=500, float farClip=4000);
 	void setComputeDepthImage(bool bCompute);
 	void setComputeNuiFullDepth(bool bCompute);
+	void setDepthSmoothing(bool bSmoothDepth, int gaussianFactor, int kernelSize);
 	void setUseTexture(bool bUse);
 	void setUseStreams(bool bUse);
 	void setSpeechGrammarFile(string path) {
@@ -260,6 +261,8 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofShortPixels depthPixelsPackedBack;	///< depth back
 	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNuiWrap; // Unpack without full depth
 	ofShortPixels depthPlayerPixels;
+	bool bSmoothDepth;
+	int gaussianSigma, kernelSize;
 	ofShortPixels depthPixels;
 
 	bool bComputingNuiFullDepth; /// Can ask for a full depth retrieval

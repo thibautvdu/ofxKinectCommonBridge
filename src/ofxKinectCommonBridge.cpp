@@ -1,5 +1,7 @@
 #include "ofxKinectCommonBridge.h"
 
+#include "ofxCv.h"
+
 #ifdef KCB_ENABLE_SPEECH
 // speech event declaration
 ofEvent<ofxKCBSpeechEvent> ofxKCBSpeechEvent::event;
@@ -120,6 +122,7 @@ ofxKinectCommonBridge::ofxKinectCommonBridge(){
 	bMappingColorToDepth = false;
 	bMappingDepthToColor = false;
 	bComputingDepthImage = false;
+	bSmoothDepth = false;
 
 	bUsingSkeletons = false;
   	bUseTexture = true;
@@ -319,6 +322,11 @@ void ofxKinectCommonBridge::update()
 			}
 		}
 
+		if (bSmoothDepth) {
+			// TO DO : ignore the zeros ~
+			cv::Mat cvDepthPixels = ofxCv::toCv(depthPixels);
+			cv::GaussianBlur(cvDepthPixels, cvDepthPixels, cv::Size(kernelSize, kernelSize), gaussianSigma);
+		}
 
 		if(bUseTexture) {
 			if( bProgrammableRenderer ) {
@@ -534,6 +542,13 @@ void ofxKinectCommonBridge::setComputeDepthImage(bool compute){
 void ofxKinectCommonBridge::setComputeNuiFullDepth(bool compute){
 	ofLogError("ofxKinectCommonBridge::setComputeNuiFullDepth") << "Not implemented right now";
 	bComputingNuiFullDepth= compute;
+}
+
+//------------------------------------
+void ofxKinectCommonBridge::setDepthSmoothing(bool smooth, int sigma, int kernel) {
+	bSmoothDepth = smooth;
+	gaussianSigma = sigma;
+	kernelSize = kernel;
 }
 
 //------------------------------------
