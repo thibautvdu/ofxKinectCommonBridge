@@ -113,7 +113,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	// new API
 	bool initSensor( int id = 0 );
 	bool createDepthPixels( int width = 0, int height = 0 );
-	bool initDepthStream( int width, int height, bool nearMode = false, bool mapColorToDepth = false );
+	bool initDepthStream( int width, int height, bool nearMode = false, bool mapColorToDepth = false, bool computeDepthImage = false );
 	bool createColorPixels( int width = 0, int height = 0 );
 	bool initColorStream( int width, int height, bool mapColorToDepth = false );
 	bool initIRStream( int width, int height );
@@ -157,7 +157,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	/// make sure to call this to update to the latest incoming frames
 	void update();
 	ofPixels& getColorPixelsRef();
-	ofPixels & getDepthPixelsRef();       	///< grayscale values
+	ofPixels & getDepthImageRef();       	///< grayscale values
 	ofShortPixels & getRawDepthPixelsRef();	///< raw 11 bit values
 	NUI_DEPTH_IMAGE_PIXEL* getNuiDepthPixelsRef();
 	NUI_DEPTH_IMAGE_PIXEL* getNuiMappedDepthPixelsRef();
@@ -174,17 +174,17 @@ class ofxKinectCommonBridge : protected ofThread {
 	void draw(const ofPoint& point);
 	void draw(const ofRectangle& rect);
 
-	/// draw the grayscale depth texture
+	/// draw the depth texture
 	void drawRawDepth(float x, float y, float w, float h);
 	void drawRawDepth(float x, float y);
 	void drawRawDepth(const ofPoint& point);
 	void drawRawDepth(const ofRectangle& rect);
 
-	/// draw the grayscale depth texture
-	void drawDepth(float x, float y, float w, float h);
-	void drawDepth(float x, float y);
-	void drawDepth(const ofPoint& point);
-	void drawDepth(const ofRectangle& rect);
+	/// draw the grayscale depth image texture
+	void drawDepthImage(float x, float y, float w, float h);
+	void drawDepthImage(float x, float y);
+	void drawDepthImage(const ofPoint& point);
+	void drawDepthImage(const ofRectangle& rect);
 
 	void drawIR( float x, float y, float w, float h );
 
@@ -195,8 +195,8 @@ class ofxKinectCommonBridge : protected ofThread {
 		return rawDepthTex;
 	}
 
-	ofTexture &getDepthTexture() {
-		return depthTex;
+	ofTexture &getDepthImageTexture() {
+		return depthImageTex;
 	}
 
 	ofTexture &getColorTexture() {
@@ -240,7 +240,7 @@ class ofxKinectCommonBridge : protected ofThread {
 #endif
 
   	bool bUseTexture;
-	ofTexture depthTex; ///< the depth texture
+	ofTexture depthImageTex; ///< the depth texture
 	ofTexture rawDepthTex; ///<
 	ofTexture videoTex; ///< the RGB texture
 
@@ -250,10 +250,12 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	ofPixels videoPixels;
 	ofPixels videoPixelsBack;			///< rgb back
-	ofPixels depthPixels;
-	ofPixels depthPixelsBack;
-	ofShortPixels depthPixelsRaw;
-	ofShortPixels depthPixelsRawBack;	///< depth back
+
+	bool computingDepthImage; /// Computing a depth image can be avoided as it is costly
+	ofPixels depthImage;
+
+	ofShortPixels depthPixelsPacked;
+	ofShortPixels depthPixelsPackedBack;	///< depth back
 	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNui;
 	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNuiMapped;
 

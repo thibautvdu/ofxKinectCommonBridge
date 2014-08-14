@@ -178,7 +178,7 @@ void ofxKinectCommonBridge::update()
 {
 	if(!bStarted)
 	{
-		ofLogError("ofxKinectCommonBridge::update") << "Kinect not started";
+		ofLog(OF_LOG_ERROR, "ofxKinectCommonBridge::update") << "Kinect not started";
 		return;
 	}
 
@@ -254,7 +254,7 @@ void ofxKinectCommonBridge::update()
 		}
 
 		bIsFrameNewDepth = true;
-		swap(depthPixelsRaw, depthPixelsRawBack);
+		swap(depthPixelsPacked, depthPixelsPackedBack);
 		bNeedsUpdateDepth = false;
 
 		// if mapping depth to color, upscale depth
@@ -264,8 +264,8 @@ void ofxKinectCommonBridge::update()
 
 			int i = 0;
 			while ( i < (depthFormat.dwWidth*depthFormat.dwHeight)) {
-				depthPixelsNui[i].depth = NuiDepthPixelToDepth(depthPixelsRaw[i]);
-				depthPixelsNui[i].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsRaw[i]);
+				depthPixelsNui[i].depth = NuiDepthPixelToDepth(depthPixelsPacked[i]);
+				depthPixelsNui[i].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsPacked[i]);
 				i++;
 			}
 
@@ -274,26 +274,31 @@ void ofxKinectCommonBridge::update()
 
 			if(SUCCEEDED(mapResult))
 			{
-				// @Thibaut For now, assume the depth and color image are the same size for the mapping
+				// For now, assume the depth and color image are the same size for the mapping
 				if (colorFormat.dwWidth != depthFormat.dwWidth || colorFormat.dwHeight != depthFormat.dwHeight) {
-					ofLog(OF_LOG_ERROR) << "Mapping depth frame to color frame is not support yet for different resolutions";
+					ofLog(OF_LOG_ERROR,"ofxKinectCommonBridge::update") << "Mapping depth frame to color frame is not support yet for different resolutions";
+					return;
 				}
+
 				for (int i = 0; i < (colorFormat.dwWidth*colorFormat.dwHeight); ++i) {
 					depthPixelsNuiMapped[i].depth = 0;
 					depthPixelsNuiMapped[i].playerIndex = 0;
-					depthPixels[i] = 0;
+
+					if (computingDepthImage) {
+						depthImage[i] = 0;
+					}
 				}
 
-				for( int i = 0; i < (depthFormat.dwWidth*depthFormat.dwHeight); i++ ) {
-					if(pts[i].x > 0 && pts[i].x < depthFormat.dwWidth && pts[i].y > 0 && pts[i].y < depthFormat.dwHeight) {
-						//depthPixels[i] = depthLookupTable[ ofClamp(depthPixelsRaw[pts[i].y * depthFormat.dwWidth + pts[i].x] >> 4, 0, depthLookupTable.size()-1 ) ];
-						int colorImageIndex = pts[i].y * depthFormat.dwWidth + pts[i].x;
-						depthPixels[colorImageIndex] = depthLookupTable[ofClamp(depthPixelsRaw[i] >> 4, 0, depthLookupTable.size() - 1)];
-						depthPixelsNuiMapped[colorImageIndex].depth = NuiDepthPixelToDepth(depthPixelsRaw[i]);
-						depthPixelsNuiMapped[colorImageIndex].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsRaw[i]);
-					} /*else {
-						depthPixels[i] = 0;
-					}*/
+				for (int i = 0; i < (colorFormat.dwWidth*colorFormat.dwHeight); i++) {
+					if (pts[i].x > 0 && pts[i].x < colorFormat.dwWidth && pts[i].y > 0 && pts[i].y < colorFormat.dwHeight) {
+						int colorImageIndex = pts[i].y * colorFormat.dwWidth + pts[i].x;
+						depthPixelsNuiMapped[colorImageIndex].depth = NuiDepthPixelToDepth(depthPixelsPacked[i]);
+						depthPixelsNuiMapped[colorImageIndex].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsPacked[i]);
+
+						if (computingDepthImage) {
+							depthImage[colorImageIndex] = depthLookupTable[ofClamp(depthPixelsPacked[i] >> 4, 0, depthLookupTable.size() - 1)];
+						}
+					}
 				}
 
 			} else {
@@ -302,29 +307,34 @@ void ofxKinectCommonBridge::update()
 
 			delete[] pts;
 
-			for(int i = 0; i < depthPixels.getWidth()*depthPixels.getHeight(); i++) {
-				depthPixelsRaw[i] = depthPixelsRaw[i] >> 4;
+			for (int i = 0; i < (colorFormat.dwWidth*colorFormat.dwHeight); i++) {
+				depthPixelsPacked[i] = depthPixelsPacked[i] >> 4;
 			}
 
 		} else {
+			for (int i = 0; i < (depthFormat.dwWidth*depthFormat.dwHeight); i++) {
+				depthPixelsNui[i].depth = NuiDepthPixelToDepth(depthPixelsPacked[i]);
+				depthPixelsNui[i].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsPacked[i]);
+				depthPixelsPacked[i] = depthPixelsPacked[i] >> 4;
 
-			for(int i = 0; i < depthPixels.getWidth()*depthPixels.getHeight(); i++) {
-				depthPixels[i] = depthLookupTable[ ofClamp(depthPixelsRaw[i] >> 4, 0, depthLookupTable.size()-1 ) ];
-				depthPixelsNui[i].depth = NuiDepthPixelToDepth(depthPixelsRaw[i]);
-				depthPixelsNui[i].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsRaw[i]);
-				depthPixelsRaw[i] = depthPixelsRaw[i] >> 4;
+				if (computingDepthImage) {
+					depthImage[i] = depthLookupTable[ofClamp(depthPixelsPacked[i] >> 4, 0, depthLookupTable.size() - 1)];
+				}
 			}
 		}
 
 
 		if(bUseTexture) {
-			//depthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
 			if( bProgrammableRenderer ) {
-				depthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_RED);
-				rawDepthTex.loadData(depthPixelsRaw.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_RED);
+				if (computingDepthImage) {
+					depthImageTex.loadData(depthImage.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_RED);
+				}
+				rawDepthTex.loadData(depthPixelsPacked.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_RED);
 			} else {
-				depthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
-				rawDepthTex.loadData(depthPixelsRaw.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE16);
+				if (computingDepthImage) {
+					depthImageTex.loadData(depthImage.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
+				}
+				rawDepthTex.loadData(depthPixelsPacked.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE16);
 			}
 		}
 	} else {
@@ -473,13 +483,17 @@ ofPixels& ofxKinectCommonBridge::getColorPixelsRef(){
 }
 
 //------------------------------------
-ofPixels & ofxKinectCommonBridge::getDepthPixelsRef(){       	///< grayscale values
-	return depthPixels;
+ofPixels & ofxKinectCommonBridge::getDepthImageRef(){       	///< grayscale values
+	if (!computingDepthImage) {
+		ofLog(OF_LOG_ERROR, "ofxKinectCommonBridge::getDepthImageRef") << "The computation of a depth image has not been set";
+		return ofPixels();
+	}
+	return depthImage;
 }
 
 //------------------------------------
 ofShortPixels & ofxKinectCommonBridge::getRawDepthPixelsRef(){
-	return depthPixelsRaw;
+	return depthPixelsPacked;
 }
 
 //------------------------------------
@@ -570,25 +584,29 @@ void ofxKinectCommonBridge::drawRawDepth(const ofRectangle & rect) {
 }
 
 //----------------------------------------------------------
-void ofxKinectCommonBridge::drawDepth(float _x, float _y, float _w, float _h) {
+void ofxKinectCommonBridge::drawDepthImage(float _x, float _y, float _w, float _h) {
+	if (!computingDepthImage) {
+		ofLog(OF_LOG_ERROR, "ofxKinectCommonBridge::drawDepthImage") << "The computation of a depth image has not been set";
+		return;
+	}
 	if(bUseTexture) {
-		depthTex.draw(_x, _y, _w, _h);
+		depthImageTex.draw(_x, _y, _w, _h);
 	}
 }
 
 //---------------------------------------------------------------------------
-void ofxKinectCommonBridge::drawDepth(float _x, float _y) {
-	drawDepth(_x, _y, (float)depthFormat.dwWidth, (float)depthFormat.dwHeight);
+void ofxKinectCommonBridge::drawDepthImage(float _x, float _y) {
+	drawDepthImage(_x, _y, (float)depthFormat.dwWidth, (float)depthFormat.dwHeight);
 }
 
 //----------------------------------------------------------
-void ofxKinectCommonBridge::drawDepth(const ofPoint & point) {
-	drawDepth(point.x, point.y);
+void ofxKinectCommonBridge::drawDepthImage(const ofPoint & point) {
+	drawDepthImage(point.x, point.y);
 }
 
 //----------------------------------------------------------
-void ofxKinectCommonBridge::drawDepth(const ofRectangle & rect) {
-	drawDepth(rect.x, rect.y, rect.width, rect.height);
+void ofxKinectCommonBridge::drawDepthImage(const ofRectangle & rect) {
+	drawDepthImage(rect.x, rect.y, rect.width, rect.height);
 }
 
 void ofxKinectCommonBridge::drawSkeleton( int index )
@@ -657,10 +675,11 @@ bool ofxKinectCommonBridge::initSensor( int id )
 	return true;
 }
 
-bool ofxKinectCommonBridge::initDepthStream( int width, int height, bool nearMode, bool mapDepthToColor )
+bool ofxKinectCommonBridge::initDepthStream( int width, int height, bool nearMode, bool mapDepthToColor , bool computeDepthImage )
 {
 
 	mappingDepthToColor = mapDepthToColor;
+	computingDepthImage = computeDepthImage;
 
 	if (mappingDepthToColor)
 	{
@@ -711,35 +730,36 @@ bool ofxKinectCommonBridge::createDepthPixels( int width, int height )
 		depthPixelsNui = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
 		depthPixelsNuiMapped = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
 
-		if(bProgrammableRenderer) {
-			depthPixels.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_COLOR);
-			depthPixelsBack.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_COLOR);
-		} else {
-			depthPixels.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
-			depthPixelsBack.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
+		if (computingDepthImage) {
+			if (bProgrammableRenderer) {
+				depthImage.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_COLOR);
+			}
+			else {
+				depthImage.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
+			}
 		}
 
-		depthPixelsRaw.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
-		depthPixelsRawBack.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
+		depthPixelsPacked.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
+		depthPixelsPackedBack.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
 
 		if(bUseTexture)
 		{
 			if(bProgrammableRenderer)
 			{
-				//int w, int h, int glInternalFormat, bool bUseARBExtention, int glFormat, int pixelType
-				depthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_R8);//, true, GL_R8, GL_UNSIGNED_BYTE);
-				depthTex.setRGToRGBASwizzles(true);
+				if (computingDepthImage) {
+					depthImageTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_R8);//, true, GL_R8, GL_UNSIGNED_BYTE);
+					depthImageTex.setRGToRGBASwizzles(true);
+				}
 
 				//rawDepthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_R16, true, GL_RED, GL_UNSIGNED_SHORT);
-				rawDepthTex.allocate(depthPixelsRaw, true);
+				rawDepthTex.allocate(depthPixelsPacked, true);
 				rawDepthTex.setRGToRGBASwizzles(true);
-
-				cout << rawDepthTex.getWidth() << " " << rawDepthTex.getHeight() << endl;
-				//depthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_RGB);
 			}
 			else
 			{
-				depthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
+				if (computingDepthImage) {
+					depthImageTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
+				}
 				rawDepthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE16);
 			}
 		}
@@ -1067,7 +1087,7 @@ void ofxKinectCommonBridge::threadedFunction(){
 	//how can we tell?
 	while(isThreadRunning()) {
 
-        if( KinectIsDepthFrameReady(hKinect) && SUCCEEDED( KinectGetDepthFrame(hKinect, depthFormat.cbBufferSize, (BYTE*)depthPixelsRawBack.getPixels(), &timestamp) ) )
+        if( KinectIsDepthFrameReady(hKinect) && SUCCEEDED( KinectGetDepthFrame(hKinect, depthFormat.cbBufferSize, (BYTE*)depthPixelsPackedBack.getPixels(), &timestamp) ) )
 		{
 			bNeedsUpdateDepth = true;
         }
