@@ -263,15 +263,8 @@ void ofxKinectCommonBridge::update()
 		{
 			NUI_COLOR_IMAGE_POINT *pts = new NUI_COLOR_IMAGE_POINT[colorFormat.dwWidth*colorFormat.dwHeight];
 
-			int i = 0;
-			while ( i < (depthFormat.dwWidth*depthFormat.dwHeight)) {
-				depthPixelsNuiWrap[i].depth = NuiDepthPixelToDepth(depthPixelsPacked[i]);
-				depthPixelsNuiWrap[i].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsPacked[i]);
-				i++;
-			}
-
 			HRESULT mapResult;
-			mapResult = mapper->MapDepthFrameToColorFrame(depthRes, (depthFormat.dwWidth*depthFormat.dwHeight), depthPixelsNuiWrap, NUI_IMAGE_TYPE_COLOR, colorRes, (depthFormat.dwWidth*depthFormat.dwHeight), pts);
+			mapResult = mapper->MapDepthFrameToColorFrame(depthRes, (depthFormat.dwWidth*depthFormat.dwHeight), depthPixelsNui, NUI_IMAGE_TYPE_COLOR, colorRes, (depthFormat.dwWidth*depthFormat.dwHeight), pts);
 
 			if(SUCCEEDED(mapResult))
 			{
@@ -293,11 +286,11 @@ void ofxKinectCommonBridge::update()
 				for (int i = 0; i < (colorFormat.dwWidth*colorFormat.dwHeight); i++) {
 					if (pts[i].x > 0 && pts[i].x < colorFormat.dwWidth && pts[i].y > 0 && pts[i].y < colorFormat.dwHeight) {
 						int colorImageIndex = pts[i].y * colorFormat.dwWidth + pts[i].x;
-						depthPixels[colorImageIndex] = depthPixelsNuiWrap[i].depth;
-						depthPlayerPixels[colorImageIndex] = depthPixelsNuiWrap[i].playerIndex;
+						depthPixels[colorImageIndex] = NuiDepthPixelToDepth(depthPixelsPacked[i]);
+						depthPlayerPixels[colorImageIndex] = NuiDepthPixelToPlayerIndex(depthPixelsPacked[i]);
 
 						if (bComputingDepthImage) {
-							depthImage[colorImageIndex] = depthLookupTable[ofClamp(depthPixelsNuiWrap[i].depth, 0, depthLookupTable.size() - 1)];
+							depthImage[colorImageIndex] = depthLookupTable[ofClamp(depthPixelsPacked[i] >> 4, 0, depthLookupTable.size() - 1)];
 						}
 					}
 				}
@@ -310,11 +303,11 @@ void ofxKinectCommonBridge::update()
 
 		} else {
 			for (int i = 0; i < (depthFormat.dwWidth*depthFormat.dwHeight); i++) {
-				depthPixels[i] = depthPixelsNuiWrap[i].depth;
-				depthPlayerPixels[i] = depthPixelsNuiWrap[i].playerIndex;
+				depthPixels[i] = NuiDepthPixelToDepth(depthPixelsPacked[i]);
+				depthPlayerPixels[i] = NuiDepthPixelToPlayerIndex(depthPixelsPacked[i]);
 
 				if (bComputingDepthImage) {
-					depthImage[i] = depthLookupTable[ofClamp(depthPixelsNuiWrap[i].depth, 0, depthLookupTable.size() - 1)];
+					depthImage[i] = depthLookupTable[ofClamp(depthPixelsPacked[i] >> 4, 0, depthLookupTable.size() - 1)];
 				}
 			}
 		}
@@ -493,13 +486,18 @@ ofShortPixels & ofxKinectCommonBridge::getDepthPixelsRef(){
 }
 
 //------------------------------------
-ofShortPixels & ofxKinectCommonBridge::getDepthPlayerPixelsRef(){
-	return depthPlayerPixels;
+NUI_DEPTH_IMAGE_PIXEL* ofxKinectCommonBridge::getNuiDepthPixelsRef(){
+	return depthPixelsNui;
 }
 
 //------------------------------------
-NUI_DEPTH_IMAGE_PIXEL* ofxKinectCommonBridge::getNuiDepthPixelsRef(){
-	return depthPixelsNui;
+NUI_DEPTH_IMAGE_PIXEL* ofxKinectCommonBridge::getNuiMappedDepthPixelsRef(){
+	if (bMappingDepthToColor)
+		return depthPixelsNuiMapped;
+	else {
+		ofLogError("ofxKinectCommonBridge::getNuiMappedDepthPixelsRef") << "Trying to retrieve mapped depth pixels while the mapping wasn't set";
+		return depthPixelsNui;
+	}
 }
 
 //------------------------------------
@@ -514,7 +512,7 @@ ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) {
 	int yColorCentered = yColor - colorFormat.dwHeight / 2;
 
 	if (bMappingDepthToColor) {
-		worldCoordinates.z = depthPixels[xColor + yColor*depthFormat.dwWidth];
+		worldCoordinates.z = (depthPixelsNuiMapped + xColor + yColor*depthFormat.dwWidth)->depth;
 		worldCoordinates.x = (worldCoordinates.z * xColorCentered) / horizontalFocalLength;
 		worldCoordinates.y = (worldCoordinates.z * yColorCentered) / verticalFocalLength;
 	}
@@ -728,9 +726,9 @@ bool ofxKinectCommonBridge::createDepthPixels( int width, int height )
 
     if( hKinect != 0 )
 	{
-		depthPixelsNuiWrap = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
 		if (bComputingNuiFullDepth) {
 			depthPixelsNui = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
+			depthPixelsNuiMapped = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
 		}
 
 		if (bComputingDepthImage) {
@@ -1067,12 +1065,12 @@ void ofxKinectCommonBridge::stop() {
 			nuiSensor = nullptr;
 		}
 
-		if(depthPixelsNuiWrap){
-			delete[] depthPixelsNuiWrap;
+		if(depthPixelsNui){
+			delete[] depthPixelsNui;
 		}
 
-		if (depthPixelsNui){
-			delete[] depthPixelsNui;
+		if (depthPixelsNuiMapped){
+			delete[] depthPixelsNuiMapped;
 		}
 
 		KinectStopStreams( hKinect );

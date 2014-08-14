@@ -113,11 +113,12 @@ class ofxKinectCommonBridge : protected ofThread {
 	// new API
 	bool initSensor( int id = 0 );
 	bool createDepthPixels( int width = 0, int height = 0 );
-	bool initDepthStream( int width, int height, bool nearMode = false, bool mapColorToDepth = false, bool computeDepthImage = false );
+	bool initDepthStream( int width, int height, bool nearMode = false, bool mapColorToDepth = false);
 	bool createColorPixels( int width = 0, int height = 0 );
 	bool initColorStream( int width, int height, bool mapColorToDepth = false );
 	bool initIRStream( int width, int height );
 	bool initSkeletonStream( bool seated );
+	bool initAudio();
 	bool start();
 
 	KCBHANDLE getHandle();
@@ -150,60 +151,42 @@ class ofxKinectCommonBridge : protected ofThread {
 		return bIsFaceNew;
 	}
 
-	void setDepthClipping(float nearClip=500, float farClip=4000);
-
 	/// updates the pixel buffers and textures
 	///
 	/// make sure to call this to update to the latest incoming frames
 	void update();
+
+	void setDepthClipping(float nearClip=500, float farClip=4000);
+	void setComputeDepthImage(bool bCompute);
+	void setComputeNuiFullDepth(bool bCompute);
+	void setUseTexture(bool bUse);
+	void setUseStreams(bool bUse);
+	void setSpeechGrammarFile(string path) {
+		grammarFile = path;
+	}
+
 	ofPixels& getColorPixelsRef();
 	ofPixels & getDepthImageRef();       	///< grayscale values
-	ofShortPixels & getRawDepthPixelsRef();	///< raw 11 bit values
+	ofShortPixels & getDepthPixelsRef();	///< raw 11 bit values
+	ofShortPixels & getDepthPlayerPixelsRef();	///< raw 11 bit values
 	NUI_DEPTH_IMAGE_PIXEL* getNuiDepthPixelsRef();
-	NUI_DEPTH_IMAGE_PIXEL* getNuiMappedDepthPixelsRef();
-	ofVec3f getWorldCoordinates(int xColor, int yColor);
-
-	/// enable/disable frame loading into textures on update()
-	void setUseTexture(bool bUse);
-	// you can just not use any streams if you want
-	void setUseStreams(bool bUse);
-
-	/// draw the video texture
-	void draw(float x, float y, float w, float h);
-	void draw(float x, float y);
-	void draw(const ofPoint& point);
-	void draw(const ofRectangle& rect);
-
-	/// draw the depth texture
-	void drawRawDepth(float x, float y, float w, float h);
-	void drawRawDepth(float x, float y);
-	void drawRawDepth(const ofPoint& point);
-	void drawRawDepth(const ofRectangle& rect);
-
-	/// draw the grayscale depth image texture
-	void drawDepthImage(float x, float y, float w, float h);
-	void drawDepthImage(float x, float y);
-	void drawDepthImage(const ofPoint& point);
-	void drawDepthImage(const ofRectangle& rect);
-
-	void drawIR( float x, float y, float w, float h );
-
 	vector<Skeleton> &getSkeletons();
-	void drawSkeleton(int index);
-
-	ofTexture &getRawDepthTexture() {
-		return rawDepthTex;
+	ofTexture &getDepthTexture() {
+		return depthTex;
 	}
 
 	ofTexture &getDepthImageTexture() {
+		if (!bComputingDepthImage) {
+			ofLogError("ofxKinectCommonBridge::getDepthImageTexture") << "The computation of the depth image has not been set";
+			return ofTexture();
+		}
 		return depthImageTex;
 	}
 
 	ofTexture &getColorTexture() {
 		return videoTex;
 	}
-
-	// face tracking
+	ofVec3f getWorldCoordinates(int xColor, int yColor);
 	ofTexture &getFaceTrackingTexture()
 	{
 		return faceTrackingTexture;
@@ -211,10 +194,29 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	ofxKCBFace& getFaceData();
 
-	void setSpeechGrammarFile(string path) {
-		grammarFile = path;
-	}
-	bool initAudio();
+	/// draw the video texture
+	void draw(float x, float y, float w, float h);
+	void draw(float x, float y);
+	void draw(const ofPoint& point);
+	void draw(const ofRectangle& rect);
+
+	/// draw the grayscale depth image texture
+	void drawDepthImage(float x, float y, float w, float h);
+	void drawDepthImage(float x, float y);
+	void drawDepthImage(const ofPoint& point);
+	void drawDepthImage(const ofRectangle& rect);
+
+	/// draw the depth texture
+	void drawDepth(float x, float y, float w, float h);
+	void drawDepth(float x, float y);
+	void drawDepth(const ofPoint& point);
+	void drawDepth(const ofRectangle& rect);
+
+	/// draw IR
+	void drawIR( float x, float y, float w, float h );
+
+	/// draw skeleton
+	void drawSkeleton(int index);
 
   private:
 
@@ -241,7 +243,7 @@ class ofxKinectCommonBridge : protected ofThread {
 
   	bool bUseTexture;
 	ofTexture depthImageTex; ///< the depth texture
-	ofTexture rawDepthTex; ///<
+	ofTexture depthTex; ///<
 	ofTexture videoTex; ///< the RGB texture
 
 	// face
@@ -251,13 +253,17 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofPixels videoPixels;
 	ofPixels videoPixelsBack;			///< rgb back
 
-	bool computingDepthImage; /// Computing a depth image can be avoided as it is costly
+	bool bComputingDepthImage; /// Computing a depth image can be avoided as it is costly
 	ofPixels depthImage;
 
 	ofShortPixels depthPixelsPacked;
 	ofShortPixels depthPixelsPackedBack;	///< depth back
+	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNuiWrap; // Unpack without full depth
+	ofShortPixels depthPlayerPixels;
+	ofShortPixels depthPixels;
+
+	bool bComputingNuiFullDepth; /// Can ask for a full depth retrieval
 	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNui;
-	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNuiMapped;
 
 	ofPixels irPixels;
 	ofPixels irPixelsBack;
@@ -314,8 +320,8 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	void threadedFunction();
 
-	bool mappingColorToDepth;
-	bool mappingDepthToColor;
+	bool bMappingColorToDepth;
+	bool bMappingDepthToColor;
 	bool beginMappingColorToDepth, beginMappingDepthToColor;
 
 	NUI_IMAGE_RESOLUTION colorRes;
