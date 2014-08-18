@@ -325,29 +325,17 @@ void ofxKinectCommonBridge::update()
 
 		if (bSmoothDepth) {
 			cv::Mat cvDepthPixels = ofxCv::toCv(depthPixels);
-
-			// We must first fill the unknown data points of the kinect with a local average, if we can
-			cvHelper::Mat2Pos radius[] = { cvHelper::Mat2Pos(0, 1), cvHelper::Mat2Pos(1, 1), cvHelper::Mat2Pos(1, 0), cvHelper::Mat2Pos(1, -1),
-				cvHelper::Mat2Pos(0, -1), cvHelper::Mat2Pos(-1, -1), cvHelper::Mat2Pos(-1, 0), cvHelper::Mat2Pos(-1, 1) };
-			for (int row = 0; row < depthFormat.dwHeight; ++row) {
-				for (int col = 0; col < depthFormat.dwWidth; ++col) {
-					USHORT* pCurrentCell = cvDepthPixels.ptr<USHORT>(row)+col;
-					if (*pCurrentCell == 0) {
-						int divide = 0;
-						for (int i = 0; i < 8; ++i) {
-							cvHelper::Mat2Pos neighboorCell = cvHelper::Mat2Pos(row, col) + radius[i];
-							if (neighboorCell.row > 0 && neighboorCell.row < depthFormat.dwHeight && neighboorCell.col > 0 && neighboorCell.col < depthFormat.dwWidth
-								&& *(cvDepthPixels.ptr<USHORT>(neighboorCell.row) + neighboorCell.col) != 0) {
-								*pCurrentCell += *(cvDepthPixels.ptr<USHORT>(neighboorCell.row) + neighboorCell.col);
-								++divide;
-							}
-						}
-						if (divide != 0)
-							*pCurrentCell /= divide;
-					}
+			cv::Mat cvUnknownPixelsMask;
+			cvUnknownPixelsMask.create(cvDepthPixels.size(), cvDepthPixels.type());
+			for (int row = 0; row < cvDepthPixels.rows; ++row) {
+				USHORT* pRow = cvDepthPixels.ptr<USHORT>(row);
+				for (int col = 0; col < cvDepthPixels.cols; ++col) {
+					*(cvUnknownPixelsMask.ptr<USHORT>(row)+col) = *(pRow + col) == 0 ? 0 : 65535;
 				}
 			}
 			cv::GaussianBlur(cvDepthPixels, cvDepthPixels, cv::Size(kernelSize, kernelSize), gaussianSigma);
+			cv::GaussianBlur(cvUnknownPixelsMask, cvUnknownPixelsMask, cv::Size(kernelSize, kernelSize), gaussianSigma);
+			cvDepthPixels = 65535 * (cvDepthPixels / cvUnknownPixelsMask);
 		}
 
 		if(bUseTexture) {
