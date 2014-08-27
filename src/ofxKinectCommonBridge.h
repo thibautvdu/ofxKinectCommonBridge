@@ -187,6 +187,7 @@ class ofxKinectCommonBridge : protected ofThread {
 		return videoTex;
 	}
 	ofVec3f getWorldCoordinates(int xColor, int yColor);
+	ofVec3f getWorldCoordinates(int xColor, int yColor, float depth);
 	ofTexture &getFaceTrackingTexture()
 	{
 		return faceTrackingTexture;

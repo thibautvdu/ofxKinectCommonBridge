@@ -525,6 +525,24 @@ ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) {
 	return worldCoordinates;
 }
 
+ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor, float worldDepth) {
+	ofVec3f worldCoordinates(0, 0, 0);
+
+	float horizontalFocalLength = colorFormat.dwWidth / (2 * tan(HORIZONTAL_VIEWING_ANGLE_RAD / 2));
+	float verticalFocalLength = colorFormat.dwHeight / (2 * tan(VERTICAL_VIEWING_ANGLE_RAD / 2));
+
+	int xColorCentered = xColor - colorFormat.dwWidth / 2;
+	int yColorCentered = yColor - colorFormat.dwHeight / 2;
+
+	if (bMappingDepthToColor) {
+		worldCoordinates.z = worldDepth;
+		worldCoordinates.x = (worldCoordinates.z * xColorCentered) / horizontalFocalLength;
+		worldCoordinates.y = (worldCoordinates.z * yColorCentered) / verticalFocalLength;
+	}
+
+	return worldCoordinates;
+}
+
 //------------------------------------
 void ofxKinectCommonBridge::setComputeDepthImage(bool compute){
 	bComputingDepthImage = compute;
