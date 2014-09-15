@@ -493,6 +493,11 @@ ofShortPixels & ofxKinectCommonBridge::getDepthPixelsRef(){
 }
 
 //------------------------------------
+ofShortPixels ofxKinectCommonBridge::getDepthPixels() const{
+	return depthPixels;
+}
+
+//------------------------------------
 ofShortPixels & ofxKinectCommonBridge::getDepthPlayerPixelsRef(){
 	return depthPlayerPixels;
 }
@@ -503,8 +508,12 @@ NUI_DEPTH_IMAGE_PIXEL* ofxKinectCommonBridge::getNuiDepthPixelsRef(){
 }
 
 //------------------------------------
+float ofxKinectCommonBridge::getDepthAt(int xColor, int yColor) const {
+	return depthPixels[xColor + yColor*depthFormat.dwWidth];
+}
+
 // Ignore abberations
-ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) {
+ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) const {
 	ofVec3f worldCoordinates(0, 0, 0);
 
 	float horizontalFocalLength = colorFormat.dwWidth / (2 * tan(HORIZONTAL_VIEWING_ANGLE_RAD / 2));
@@ -514,9 +523,11 @@ ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) {
 	int yColorCentered = yColor - colorFormat.dwHeight / 2;
 
 	if (bMappingDepthToColor) {
-		worldCoordinates.z = depthPixels[xColor + yColor*depthFormat.dwWidth];
-		worldCoordinates.x = (worldCoordinates.z * xColorCentered) / horizontalFocalLength;
-		worldCoordinates.y = (worldCoordinates.z * yColorCentered) / verticalFocalLength;
+		worldCoordinates.z = getDepthAt(xColor,yColor);
+		if (abs(worldCoordinates.z) > 0.1) {
+			worldCoordinates.x = (worldCoordinates.z * xColorCentered) / horizontalFocalLength;
+			worldCoordinates.y = (worldCoordinates.z * yColorCentered) / verticalFocalLength;
+		}
 	}
 	else {
 		ofLogError("ofxKinectCommonBridge::getWorldCoordinates") << "Retrieving world coordinates without mapping depth to color isn't supported yet";
@@ -525,7 +536,7 @@ ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) {
 	return worldCoordinates;
 }
 
-ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor, float worldDepth) {
+ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor, float worldDepth) const {
 	ofVec3f worldCoordinates(0, 0, 0);
 
 	float horizontalFocalLength = colorFormat.dwWidth / (2 * tan(HORIZONTAL_VIEWING_ANGLE_RAD / 2));

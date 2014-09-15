@@ -168,6 +168,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofPixels& getColorPixelsRef();
 	ofPixels & getDepthImageRef();       	///< grayscale values
 	ofShortPixels & getDepthPixelsRef();	///< raw 11 bit values
+	ofShortPixels getDepthPixels() const;	///< raw 11 bit values
 	ofShortPixels & getDepthPlayerPixelsRef();	///< raw 11 bit values
 	NUI_DEPTH_IMAGE_PIXEL* getNuiDepthPixelsRef();
 	vector<Skeleton> &getSkeletons();
@@ -186,8 +187,9 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofTexture &getColorTexture() {
 		return videoTex;
 	}
-	ofVec3f getWorldCoordinates(int xColor, int yColor);
-	ofVec3f getWorldCoordinates(int xColor, int yColor, float depth);
+	float getDepthAt(int xColor, int yColor) const;
+	ofVec3f getWorldCoordinates(int xColor, int yColor) const;
+	ofVec3f getWorldCoordinates(int xColor, int yColor, float depth) const;
 	ofTexture &getFaceTrackingTexture()
 	{
 		return faceTrackingTexture;
