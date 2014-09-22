@@ -129,8 +129,8 @@ ofxKinectCommonBridge::ofxKinectCommonBridge(){
 	setDepthClipping();
 }
 
-const float ofxKinectCommonBridge::HORIZONTAL_VIEWING_ANGLE_RAD = 0.994837674f;
-const float ofxKinectCommonBridge::VERTICAL_VIEWING_ANGLE_RAD = 0.750491578f;
+const float ofxKinectCommonBridge::HORIZONTAL_FOCAL_LENGTH = 640.0 / (2 * tan(0.994837674f / 2));
+const float ofxKinectCommonBridge::VERTICAL_FOCAL_LENGTH = 480.0 / (2 * tan(0.750491578f / 2));
 
 //---------------------------------------------------------------------------
 void ofxKinectCommonBridge::setDepthClipping(float nearClip, float farClip){
@@ -271,7 +271,12 @@ void ofxKinectCommonBridge::update()
 			}
 
 			HRESULT mapResult;
-			mapResult = mapper->MapDepthFrameToColorFrame(depthRes, (depthFormat.dwWidth*depthFormat.dwHeight), depthPixelsNuiWrap, NUI_IMAGE_TYPE_COLOR, colorRes, (depthFormat.dwWidth*depthFormat.dwHeight), pts);
+			if (!bVideoIsInfrared) {
+				mapResult = mapper->MapDepthFrameToColorFrame(depthRes, (depthFormat.dwWidth*depthFormat.dwHeight), depthPixelsNuiWrap, NUI_IMAGE_TYPE_COLOR, colorRes, (depthFormat.dwWidth*depthFormat.dwHeight), pts);
+			}
+			else {
+				mapResult = mapper->MapDepthFrameToColorFrame(depthRes, (depthFormat.dwWidth*depthFormat.dwHeight), depthPixelsNuiWrap, NUI_IMAGE_TYPE_COLOR_INFRARED, colorRes, (depthFormat.dwWidth*depthFormat.dwHeight), pts);
+			}
 
 			if(SUCCEEDED(mapResult))
 			{
@@ -512,21 +517,29 @@ float ofxKinectCommonBridge::getDepthAt(int xColor, int yColor) const {
 	return depthPixels[xColor + yColor*depthFormat.dwWidth];
 }
 
+//------------------------------------
+ofVec3f ofxKinectCommonBridge::project(ofVec3f worldPoint) const {
+	ofVec3f projected(0, 0, 0);
+	projected.x = worldPoint.x * HORIZONTAL_FOCAL_LENGTH / worldPoint.z;
+	projected.y = worldPoint.y * VERTICAL_FOCAL_LENGTH / worldPoint.z;
+
+	projected.x += colorFormat.dwWidth / 2;
+	projected.y += colorFormat.dwHeight / 2;
+
+	return projected;
+}
+
 // Ignore abberations
 ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) const {
 	ofVec3f worldCoordinates(0, 0, 0);
-
-	float horizontalFocalLength = colorFormat.dwWidth / (2 * tan(HORIZONTAL_VIEWING_ANGLE_RAD / 2));
-	float verticalFocalLength = colorFormat.dwHeight / (2 * tan(VERTICAL_VIEWING_ANGLE_RAD / 2));
-
 	int xColorCentered = xColor - colorFormat.dwWidth / 2;
 	int yColorCentered = yColor - colorFormat.dwHeight / 2;
 
 	if (bMappingDepthToColor) {
-		worldCoordinates.z = getDepthAt(xColor,yColor);
-		if (abs(worldCoordinates.z) > 0.1) {
-			worldCoordinates.x = (worldCoordinates.z * xColorCentered) / horizontalFocalLength;
-			worldCoordinates.y = (worldCoordinates.z * yColorCentered) / verticalFocalLength;
+		worldCoordinates.z = depthPixels[xColor + yColor*depthFormat.dwWidth];
+		if (worldCoordinates.z > 0.1) {
+			worldCoordinates.x = (worldCoordinates.z * xColorCentered) / HORIZONTAL_FOCAL_LENGTH;
+			worldCoordinates.y = (worldCoordinates.z * yColorCentered) / VERTICAL_FOCAL_LENGTH;
 		}
 	}
 	else {
@@ -539,16 +552,13 @@ ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) const
 ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor, float worldDepth) const {
 	ofVec3f worldCoordinates(0, 0, 0);
 
-	float horizontalFocalLength = colorFormat.dwWidth / (2 * tan(HORIZONTAL_VIEWING_ANGLE_RAD / 2));
-	float verticalFocalLength = colorFormat.dwHeight / (2 * tan(VERTICAL_VIEWING_ANGLE_RAD / 2));
-
 	int xColorCentered = xColor - colorFormat.dwWidth / 2;
 	int yColorCentered = yColor - colorFormat.dwHeight / 2;
 
 	if (bMappingDepthToColor) {
 		worldCoordinates.z = worldDepth;
-		worldCoordinates.x = (worldCoordinates.z * xColorCentered) / horizontalFocalLength;
-		worldCoordinates.y = (worldCoordinates.z * yColorCentered) / verticalFocalLength;
+		worldCoordinates.x = (worldCoordinates.z * xColorCentered) / HORIZONTAL_FOCAL_LENGTH;
+		worldCoordinates.y = (worldCoordinates.z * yColorCentered) / VERTICAL_FOCAL_LENGTH;
 	}
 
 	return worldCoordinates;
@@ -883,20 +893,19 @@ bool ofxKinectCommonBridge::initIRStream( int width, int height )
 
 	bVideoIsInfrared = true;
 
-	_NUI_IMAGE_RESOLUTION res;
 	if( width == 320 ) {
-		res = NUI_IMAGE_RESOLUTION_320x240;
+		colorRes = NUI_IMAGE_RESOLUTION_320x240;
 	} else if( width == 640 ) {
-		res = NUI_IMAGE_RESOLUTION_640x480;
+		colorRes = NUI_IMAGE_RESOLUTION_640x480;
 	} else if( width == 1280 ) {
-		res = NUI_IMAGE_RESOLUTION_1280x960;
+		colorRes = NUI_IMAGE_RESOLUTION_1280x960;
 	} else {
 		ofLog() << " invalid image size passed to startIRStream() " << endl;
 	}
 
 	KINECT_IMAGE_FRAME_FORMAT cf = { sizeof(KINECT_IMAGE_FRAME_FORMAT), 0 };
 
-    KinectEnableIRStream(hKinect, res, &cf);
+	KinectEnableIRStream(hKinect, colorRes, &cf);
     if( KinectStreamStatusError != KinectGetIRStreamStatus(hKinect) )
 	{
 
@@ -1040,7 +1049,7 @@ bool ofxKinectCommonBridge::start()
 		initSensor();
 	}
 
-	if(!bInitedColor && bUseStreams)
+	if(!bInitedColor && !bInitedIR && bUseStreams)
 	{
 		initColorStream(640,480);
 	}
@@ -1128,7 +1137,7 @@ void ofxKinectCommonBridge::threadedFunction(){
 
 		if(bVideoIsInfrared)
 		{
-			if(  KinectIsColorFrameReady(hKinect) && SUCCEEDED( KinectGetColorFrame(hKinect, colorFormat.cbBufferSize, irPixelByteArray, &timestamp) ) )
+			if(  KinectIsColorFrameReady(hKinect) && SUCCEEDED( KinectGetIRFrame(hKinect, colorFormat.cbBufferSize, irPixelByteArray, &timestamp) ) )
 			{
 				bNeedsUpdateVideo = true;
 

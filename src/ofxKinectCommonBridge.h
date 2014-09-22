@@ -104,9 +104,9 @@ typedef map<_NUI_SKELETON_POSITION_INDEX, SkeletonBone> Skeleton;
 class ofxKinectCommonBridge : protected ofThread {
   public:
 	static const int HORIZONTAL_VIEWING_ANGLE = 57;
-	static const float HORIZONTAL_VIEWING_ANGLE_RAD;
+	static const float HORIZONTAL_FOCAL_LENGTH;
 	static const int VERTICAL_VIEWING_ANGLE = 43;
-	static const float VERTICAL_VIEWING_ANGLE_RAD;
+	static const float VERTICAL_FOCAL_LENGTH;
 
 	ofxKinectCommonBridge();
 
@@ -188,6 +188,7 @@ class ofxKinectCommonBridge : protected ofThread {
 		return videoTex;
 	}
 	float getDepthAt(int xColor, int yColor) const;
+	ofVec3f project(ofVec3f worldPoint) const;
 	ofVec3f getWorldCoordinates(int xColor, int yColor) const;
 	ofVec3f getWorldCoordinates(int xColor, int yColor, float depth) const;
 	ofTexture &getFaceTrackingTexture()
