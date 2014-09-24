@@ -265,8 +265,8 @@ void ofxKinectCommonBridge::update()
 
 			int i = 0;
 			while ( i < (depthFormat.dwWidth*depthFormat.dwHeight)) {
-				depthPixelsNuiWrap[i].depth = NuiDepthPixelToDepth(depthPixelsPacked[i]);
-				depthPixelsNuiWrap[i].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsPacked[i]);
+				depthPixelsNuiWrap[i].depth = depthPixelsPacked[i] >> NUI_IMAGE_PLAYER_INDEX_SHIFT;
+				//depthPixelsNuiWrap[i].playerIndex = NuiDepthPixelToPlayerIndex(depthPixelsPacked[i]);
 				i++;
 			}
 
@@ -288,7 +288,7 @@ void ofxKinectCommonBridge::update()
 
 				for (int i = 0; i < (colorFormat.dwWidth*colorFormat.dwHeight); ++i) {
 					depthPixels[i] = 0;
-					depthPlayerPixels[i] = 0;
+					//depthPlayerPixels[i] = 0;
 
 					if (bComputingDepthImage) {
 						depthImage[i] = 0;
@@ -299,7 +299,7 @@ void ofxKinectCommonBridge::update()
 					if (pts[i].x > 0 && pts[i].x < colorFormat.dwWidth && pts[i].y > 0 && pts[i].y < colorFormat.dwHeight) {
 						int colorImageIndex = pts[i].y * colorFormat.dwWidth + pts[i].x;
 						depthPixels[colorImageIndex] = depthPixelsNuiWrap[i].depth;
-						depthPlayerPixels[colorImageIndex] = depthPixelsNuiWrap[i].playerIndex;
+						//depthPlayerPixels[colorImageIndex] = depthPixelsNuiWrap[i].playerIndex;
 
 						if (bComputingDepthImage) {
 							depthImage[colorImageIndex] = depthLookupTable[ofClamp(depthPixelsNuiWrap[i].depth, 0, depthLookupTable.size() - 1)];
