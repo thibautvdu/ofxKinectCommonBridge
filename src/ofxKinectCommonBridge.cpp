@@ -131,6 +131,8 @@ ofxKinectCommonBridge::ofxKinectCommonBridge(){
 
 const float ofxKinectCommonBridge::HORIZONTAL_FOCAL_LENGTH = 640.0 / (2 * tan(0.994837674f / 2));
 const float ofxKinectCommonBridge::VERTICAL_FOCAL_LENGTH = 480.0 / (2 * tan(0.750491578f / 2));
+const float ofxKinectCommonBridge::HORIZONTAL_FOCAL_LENGTH_INV = (2 * tan(0.994837674f / 2)) / 640.0;
+const float ofxKinectCommonBridge::VERTICAL_FOCAL_LENGTH_INV = (2 * tan(0.750491578f / 2)) / 480.0;
 
 //---------------------------------------------------------------------------
 void ofxKinectCommonBridge::setDepthClipping(float nearClip, float farClip){
@@ -538,8 +540,8 @@ ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) const
 	if (bMappingDepthToColor) {
 		worldCoordinates.z = depthPixels[xColor + yColor*depthFormat.dwWidth];
 		if (worldCoordinates.z > 0.1) {
-			worldCoordinates.x = (worldCoordinates.z * xColorCentered) / HORIZONTAL_FOCAL_LENGTH;
-			worldCoordinates.y = (worldCoordinates.z * yColorCentered) / VERTICAL_FOCAL_LENGTH;
+			worldCoordinates.x = worldCoordinates.z * xColorCentered * HORIZONTAL_FOCAL_LENGTH_INV;
+			worldCoordinates.y = worldCoordinates.z * yColorCentered * VERTICAL_FOCAL_LENGTH_INV;
 		}
 	}
 	else {
@@ -557,8 +559,8 @@ ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor, float
 
 	if (bMappingDepthToColor) {
 		worldCoordinates.z = worldDepth;
-		worldCoordinates.x = (worldCoordinates.z * xColorCentered) / HORIZONTAL_FOCAL_LENGTH;
-		worldCoordinates.y = (worldCoordinates.z * yColorCentered) / VERTICAL_FOCAL_LENGTH;
+		worldCoordinates.x = worldCoordinates.z * xColorCentered * HORIZONTAL_FOCAL_LENGTH_INV;
+		worldCoordinates.y = worldCoordinates.z * yColorCentered * VERTICAL_FOCAL_LENGTH_INV;
 	}
 
 	return worldCoordinates;

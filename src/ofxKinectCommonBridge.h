@@ -105,8 +105,10 @@ class ofxKinectCommonBridge : protected ofThread {
   public:
 	static const int HORIZONTAL_VIEWING_ANGLE = 57;
 	static const float HORIZONTAL_FOCAL_LENGTH;
+	static const float HORIZONTAL_FOCAL_LENGTH_INV;
 	static const int VERTICAL_VIEWING_ANGLE = 43;
 	static const float VERTICAL_FOCAL_LENGTH;
+	static const float VERTICAL_FOCAL_LENGTH_INV;
 
 	ofxKinectCommonBridge();
 
