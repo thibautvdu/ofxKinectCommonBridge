@@ -531,6 +531,26 @@ ofVec3f ofxKinectCommonBridge::project(ofVec3f worldPoint) const {
 	return projected;
 }
 
+void ofxKinectCommonBridge::SelectiveSmoothing(const cv::Mat &in_mask, int size, float sigma) {
+	cv::Mat smoothing_mask;
+	in_mask.convertTo(smoothing_mask, CV_16UC1);
+
+	cv::Mat depthPixelsCv = ofxCv::toCv(depthPixels);
+	USHORT *p_depth, *p_mask;
+	for (int row = 0; row < colorFormat.dwHeight; ++row) {
+		p_depth = depthPixelsCv.ptr<USHORT>(row);
+		p_mask = smoothing_mask.ptr<USHORT>(row);
+		for (int col = 0; col < colorFormat.dwWidth; ++col) {
+			if (0 == p_mask[col])
+				p_depth[col] = 0;
+		}
+	}
+	ofxCv::GaussianBlur(smoothing_mask, smoothing_mask, cv::Size(size, size), sigma);
+	ofxCv::GaussianBlur(depthPixelsCv, depthPixelsCv, cv::Size(size, size), sigma);
+
+	depthPixelsCv = (depthPixelsCv * 255) / smoothing_mask;
+}
+
 // Ignore abberations
 ofVec3f ofxKinectCommonBridge::getWorldCoordinates(int xColor, int yColor) const {
 	ofVec3f worldCoordinates(0, 0, 0);

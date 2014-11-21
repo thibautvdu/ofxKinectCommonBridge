@@ -6,6 +6,7 @@
 #include "KinectCommonBridgeLib.h"
 #include "NuiSensor.h"
 #include "ofMain.h" // this MUST come after KCB!!! Not sure you need NuiSensor.h if using KCB
+#include "ofxCv.h"
 
 #pragma comment (lib, "KinectCommonBridge.lib") // add path to lib additional dependency dir $(TargetDir)
 
@@ -190,6 +191,7 @@ class ofxKinectCommonBridge : protected ofThread {
 		return videoTex;
 	}
 	float getDepthAt(int xColor, int yColor) const;
+	void SelectiveSmoothing(const cv::Mat &mask, int size, float sigma);
 	ofVec3f project(ofVec3f worldPoint) const;
 	ofVec3f getWorldCoordinates(int xColor, int yColor) const;
 	ofVec3f getWorldCoordinates(int xColor, int yColor, float depth) const;
