@@ -545,8 +545,12 @@ void ofxKinectCommonBridge::SelectiveSmoothing(const cv::Mat &in_mask, int size,
 				p_depth[col] = 0;
 		}
 	}
-	ofxCv::GaussianBlur(smoothing_mask, smoothing_mask, cv::Size(size, size), sigma);
-	ofxCv::GaussianBlur(depthPixelsCv, depthPixelsCv, cv::Size(size, size), sigma);
+	
+	cv::Mat kernel = cv::getGaussianKernel(size, sigma, CV_32F);
+	cv::Mat no_change = cv::Mat::zeros(cv::Size(size, 1), CV_32F);
+	no_change.ptr<float>(0)[(size - 1) / 2] = 1;
+	ofxCv::sepFilter2D(smoothing_mask, smoothing_mask, -1, no_change, kernel);
+	ofxCv::sepFilter2D(depthPixelsCv, depthPixelsCv, -1, no_change, kernel);
 
 	depthPixelsCv = (depthPixelsCv * 255) / smoothing_mask;
 }
