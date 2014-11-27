@@ -7,6 +7,7 @@
 #include "NuiSensor.h"
 #include "ofMain.h" // this MUST come after KCB!!! Not sure you need NuiSensor.h if using KCB
 #include "ofxCv.h"
+#include "opencv2/cuda.hpp"
 
 #pragma comment (lib, "KinectCommonBridge.lib") // add path to lib additional dependency dir $(TargetDir)
 
@@ -171,7 +172,9 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofPixels& getColorPixelsRef();
 	ofPixels & getDepthImageRef();       	///< grayscale values
 	ofShortPixels & getDepthPixelsRef();	///< raw 11 bit values
+	cv::cuda::GpuMat & ofxKinectCommonBridge::getDepthPixelsGpuRef();
 	ofShortPixels getDepthPixels() const;	///< raw 11 bit values
+	cv::cuda::GpuMat ofxKinectCommonBridge::getDepthPixelsGpu() const;
 	ofShortPixels & getDepthPlayerPixelsRef();	///< raw 11 bit values
 	NUI_DEPTH_IMAGE_PIXEL* getNuiDepthPixelsRef();
 	vector<Skeleton> &getSkeletons();
@@ -191,7 +194,7 @@ class ofxKinectCommonBridge : protected ofThread {
 		return videoTex;
 	}
 	float getDepthAt(int xColor, int yColor) const;
-	void SelectiveSmoothing(const cv::Mat &mask, int size, float sigma);
+	void SelectiveSmoothing(const cv::cuda::GpuMat &mask, int size, float sigma);
 	ofVec3f project(ofVec3f worldPoint) const;
 	ofVec3f getWorldCoordinates(int xColor, int yColor) const;
 	ofVec3f getWorldCoordinates(int xColor, int yColor, float depth) const;
@@ -269,6 +272,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNuiWrap; // Unpack without full depth
 	ofShortPixels depthPlayerPixels;
 	ofShortPixels depthPixels;
+	cv::cuda::GpuMat depthPixels_gpu;
 
 	bool bComputingNuiFullDepth; /// Can ask for a full depth retrieval
 	NUI_DEPTH_IMAGE_PIXEL* depthPixelsNui;

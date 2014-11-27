@@ -1,5 +1,9 @@
 #include "ofxKinectCommonBridge.h"
 
+#include "opencv2/cuda.hpp"
+#include "opencv2/cudafilters.hpp"
+#include "opencv2/cudaarithm.hpp"
+
 #ifdef KCB_ENABLE_SPEECH
 // speech event declaration
 ofEvent<ofxKCBSpeechEvent> ofxKCBSpeechEvent::event;
@@ -340,6 +344,10 @@ void ofxKinectCommonBridge::update()
 				depthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE16);
 			}
 		}
+
+		// CUDA
+		cv::Mat temp = ofxCv::toCv(depthPixels);
+		depthPixels_gpu.upload(temp);
 	} else {
 		bIsFrameNewDepth = false;
 	}
@@ -500,8 +508,19 @@ ofShortPixels & ofxKinectCommonBridge::getDepthPixelsRef(){
 }
 
 //------------------------------------
+cv::cuda::GpuMat & ofxKinectCommonBridge::getDepthPixelsGpuRef(){
+	return depthPixels_gpu;
+}
+
+
+//------------------------------------
 ofShortPixels ofxKinectCommonBridge::getDepthPixels() const{
 	return depthPixels;
+}
+
+//------------------------------------
+cv::cuda::GpuMat ofxKinectCommonBridge::getDepthPixelsGpu() const{
+	return depthPixels_gpu;
 }
 
 //------------------------------------
@@ -531,28 +550,26 @@ ofVec3f ofxKinectCommonBridge::project(ofVec3f worldPoint) const {
 	return projected;
 }
 
-void ofxKinectCommonBridge::SelectiveSmoothing(const cv::Mat &in_mask, int size, float sigma) {
-	cv::Mat smoothing_mask;
-	in_mask.convertTo(smoothing_mask, CV_16UC1);
+void ofxKinectCommonBridge::SelectiveSmoothing(const cv::cuda::GpuMat &in_mask, int size, float sigma) {
+	cv::cuda::GpuMat smoothing_mask_gpu;
+	in_mask.convertTo(smoothing_mask_gpu, CV_16UC1);
 
-	cv::Mat depthPixelsCv = ofxCv::toCv(depthPixels);
-	USHORT *p_depth, *p_mask;
-	for (int row = 0; row < colorFormat.dwHeight; ++row) {
-		p_depth = depthPixelsCv.ptr<USHORT>(row);
-		p_mask = smoothing_mask.ptr<USHORT>(row);
-		for (int col = 0; col < colorFormat.dwWidth; ++col) {
-			if (0 == p_mask[col])
-				p_depth[col] = 0;
-		}
-	}
+	// Apply the mask on the depth map
+	cv::cuda::multiply(smoothing_mask_gpu, depthPixels_gpu, depthPixels_gpu, 1.0 / 255);
 	
+	// Create the CUDA filter
 	cv::Mat kernel = cv::getGaussianKernel(size, sigma, CV_32F);
 	cv::Mat no_change = cv::Mat::zeros(cv::Size(size, 1), CV_32F);
 	no_change.ptr<float>(0)[(size - 1) / 2] = 1;
-	ofxCv::sepFilter2D(smoothing_mask, smoothing_mask, -1, no_change, kernel);
-	ofxCv::sepFilter2D(depthPixelsCv, depthPixelsCv, -1, no_change, kernel);
+	cv::Ptr<cv::cuda::Filter> sep_filter_2d = cv::cuda::createSeparableLinearFilter(CV_16UC1, CV_16UC1, no_change, kernel);
 
-	depthPixelsCv = (depthPixelsCv * 255) / smoothing_mask;
+	// Apply the filter
+	sep_filter_2d->apply(smoothing_mask_gpu, smoothing_mask_gpu);
+	sep_filter_2d->apply(depthPixels_gpu, depthPixels_gpu);
+	cv::cuda::divide(depthPixels_gpu, smoothing_mask_gpu, depthPixels_gpu, 255);
+
+	cv::Mat depth_pixels = ofxCv::toCv(depthPixels);
+	depthPixels_gpu.download(depth_pixels);
 }
 
 // Ignore abberations
