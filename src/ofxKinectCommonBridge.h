@@ -172,6 +172,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofPixels& getColorPixelsRef();
 	ofPixels & getDepthImageRef();       	///< grayscale values
 	ofShortPixels & getDepthPixelsRef();	///< raw 11 bit values
+	const ofShortPixels & getDepthPixelsRef() const;	///< raw 11 bit values
 	cv::cuda::GpuMat & ofxKinectCommonBridge::getDepthPixelsGpuRef();
 	ofShortPixels getDepthPixels() const;	///< raw 11 bit values
 	cv::cuda::GpuMat ofxKinectCommonBridge::getDepthPixelsGpu() const;
@@ -194,7 +195,7 @@ class ofxKinectCommonBridge : protected ofThread {
 		return videoTex;
 	}
 	float getDepthAt(int xColor, int yColor) const;
-	void SelectiveSmoothing(const cv::cuda::GpuMat &mask, int size, float sigma);
+	void CropAndSmooth(const cv::cuda::GpuMat &mask, int size, float sigma);
 	ofVec3f project(ofVec3f worldPoint) const;
 	ofVec3f getWorldCoordinates(int xColor, int yColor) const;
 	ofVec3f getWorldCoordinates(int xColor, int yColor, float depth) const;

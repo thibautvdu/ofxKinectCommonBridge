@@ -508,6 +508,12 @@ ofShortPixels & ofxKinectCommonBridge::getDepthPixelsRef(){
 }
 
 //------------------------------------
+const ofShortPixels & ofxKinectCommonBridge::getDepthPixelsRef() const{
+	return depthPixels;
+}
+
+
+//------------------------------------
 cv::cuda::GpuMat & ofxKinectCommonBridge::getDepthPixelsGpuRef(){
 	return depthPixels_gpu;
 }
@@ -550,7 +556,7 @@ ofVec3f ofxKinectCommonBridge::project(ofVec3f worldPoint) const {
 	return projected;
 }
 
-void ofxKinectCommonBridge::SelectiveSmoothing(const cv::cuda::GpuMat &in_mask, int size, float sigma) {
+void ofxKinectCommonBridge::CropAndSmooth(const cv::cuda::GpuMat &in_mask, int size, float sigma) {
 	cv::cuda::GpuMat smoothing_mask_gpu;
 	in_mask.convertTo(smoothing_mask_gpu, CV_16UC1);
 
